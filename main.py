@@ -1,5 +1,6 @@
 import argparse
 from rich.console import Console
+from modules import html_report
 from modules.dns_lookup import get_dns_records
 from modules.whois_lookup import get_whois_info
 from modules.ssl_checker import get_ssl_certificate
@@ -7,8 +8,9 @@ from modules.port_scanner import scan_ports
 from modules.subdomain_enum import enumerate_subdomains
 from modules.tech_fingerprint import fingerprint_technology
 from modules.report_generator import save_report
-from modules.risk_engine import generate_findings
 from modules.html_report import generate_html_report
+from modules.risk_engine import generate_findings, calculate_attack_surface_score
+from modules.pdf_report import generate_pdf_report
 
 console = Console()
 
@@ -95,6 +97,13 @@ def main():
     findings = generate_findings(report_data)
     report_data["findings"] = findings
 
+    attack_surface_score = calculate_attack_surface_score(findings)
+    report_data["attack_surface_score"] = attack_surface_score
+
+    console.print("\n[bold cyan][+] Attack Surface Score[/bold cyan]\n")
+    console.print(f"[bold]Score:[/bold] {attack_surface_score['score']} / 100")
+    console.print(f"[bold]Rating:[/bold] {attack_surface_score['rating']}")
+
     console.print("\n[bold cyan][+] Risk Summary Findings[/bold cyan]\n")
 
     if findings:
@@ -102,17 +111,25 @@ def main():
             console.print(
                 f"[bold]{finding['severity']}[/bold] - {finding['finding']}"
             )
-            console.print(
-                f"Recommendation: {finding['recommendation']}\n"
-            )
+            console.print(f"Recommendation: {finding['recommendation']}\n")
     else:
         console.print("[green]No basic findings detected[/green]")
 
     html_report = generate_html_report(args.domain, report_data)
+    pdf_report = generate_pdf_report(args.domain, report_data)
     report_file = save_report(args.domain, report_data)
 
-    console.print(f"[bold green]HTML report saved:[/bold green] {html_report}")
-    console.print(f"[bold green]Report saved:[/bold green] {report_file}")
+    console.print(
+        f"[bold green]HTML report saved:[/bold green] {html_report}"
+    )
+
+    console.print(
+        f"[bold green]PDF report saved:[/bold green] {pdf_report}"
+    )
+
+    console.print(
+        f"[bold green]Report saved:[/bold green] {report_file}"
+    )
 
 
 if __name__ == "__main__":

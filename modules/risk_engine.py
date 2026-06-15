@@ -36,3 +36,36 @@ def generate_findings(report_data: dict) -> list:
             break
 
     return findings
+
+
+def calculate_attack_surface_score(findings: list) -> dict:
+    score = 100
+
+    severity_weights = {
+        "Critical": 30,
+        "High": 20,
+        "Medium": 10,
+        "Low": 5,
+        "Informational": 2
+    }
+
+    for finding in findings:
+        severity = finding.get("severity", "Informational")
+        score -= severity_weights.get(severity, 0)
+
+    if score < 0:
+        score = 0
+
+    if score >= 85:
+        rating = "Low Risk"
+    elif score >= 65:
+        rating = "Moderate Risk"
+    elif score >= 40:
+        rating = "High Risk"
+    else:
+        rating = "Critical Risk"
+
+    return {
+        "score": score,
+        "rating": rating
+    }

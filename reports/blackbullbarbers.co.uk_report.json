@@ -14,9 +14,9 @@
             "ns64.domaincontrol.com."
         ],
         "TXT": [
-            "\"NETORGFT18214690.onmicrosoft.com\"",
             "\"v=spf1 include:secureserver.net -all\"",
-            "\"google-site-verification=HuSs8Q2TuA-qzyTnAotuGe_kXwI1NkG7JgLu1HWZPOw\""
+            "\"google-site-verification=HuSs8Q2TuA-qzyTnAotuGe_kXwI1NkG7JgLu1HWZPOw\"",
+            "\"NETORGFT18214690.onmicrosoft.com\""
         ]
     },
     "whois_information": {
@@ -87,15 +87,15 @@
     "subdomains": [
         {
             "subdomain": "www.blackbullbarbers.co.uk",
-            "ip": "76.223.105.230"
-        },
-        {
-            "subdomain": "www.blackbullbarbers.co.uk",
             "ip": "13.248.243.5"
         },
         {
+            "subdomain": "www.blackbullbarbers.co.uk",
+            "ip": "76.223.105.230"
+        },
+        {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "52.98.227.120"
+            "ip": "52.97.208.8"
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
@@ -103,11 +103,11 @@
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "52.98.224.136"
+            "ip": "52.98.227.104"
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "52.97.211.152"
+            "ip": "52.97.212.120"
         }
     ],
     "technology_fingerprint": {
@@ -142,5 +142,9 @@
             "finding": "Microsoft 365 Autodiscover endpoint detected",
             "recommendation": "Ensure Exchange Online and autodiscover settings are securely configured."
         }
-    ]
+    ],
+    "attack_surface_score": {
+        "score": 81,
+        "rating": "Moderate Risk"
+    }
 }

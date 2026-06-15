@@ -10,6 +10,7 @@ def generate_html_report(domain: str, report_data: dict):
     subdomains = report_data.get("subdomains", [])
     open_ports = report_data.get("open_ports", [])
     tech = report_data.get("technology_fingerprint", {})
+    attack_surface_score = report_data.get("attack_surface_score", {})
 
     html = f"""
 <html>
@@ -22,54 +23,51 @@ def generate_html_report(domain: str, report_data: dict):
             background-color: #f8f9fa;
             color: #2c3e50;
         }}
-
         .container {{
             background: white;
             padding: 30px;
             border-radius: 8px;
         }}
-
         h1 {{
             color: #2c3e50;
         }}
-
         h2 {{
             color: #34495e;
             border-bottom: 1px solid #ddd;
             padding-bottom: 5px;
         }}
-
+        .score-card {{
+            border: 2px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            font-size: 20px;
+            background: #fdfdfd;
+        }}
         .finding {{
             border: 1px solid #ddd;
             padding: 12px;
             margin: 12px 0;
             background: #ffffff;
         }}
-
         .medium {{
             border-left: 6px solid orange;
         }}
-
         .low {{
             border-left: 6px solid green;
         }}
-
         .informational {{
             border-left: 6px solid blue;
         }}
-
         table {{
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
         }}
-
         th, td {{
             border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
         }}
-
         th {{
             background-color: #ecf0f1;
         }}
@@ -90,6 +88,12 @@ def generate_html_report(domain: str, report_data: dict):
         The assessment identified publicly accessible assets, DNS records, SSL certificate
         information, subdomains, open ports and security header findings.
     </p>
+
+    <h2>Overall Risk Score</h2>
+    <div class="score-card">
+        <b>Score:</b> {attack_surface_score.get("score", "N/A")} / 100<br><br>
+        <b>Rating:</b> {attack_surface_score.get("rating", "Unknown")}
+    </div>
 
     <h2>Asset Inventory</h2>
     <table>

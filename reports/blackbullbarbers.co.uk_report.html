@@ -9,54 +9,51 @@
             background-color: #f8f9fa;
             color: #2c3e50;
         }
-
         .container {
             background: white;
             padding: 30px;
             border-radius: 8px;
         }
-
         h1 {
             color: #2c3e50;
         }
-
         h2 {
             color: #34495e;
             border-bottom: 1px solid #ddd;
             padding-bottom: 5px;
         }
-
+        .score-card {
+            border: 2px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            font-size: 20px;
+            background: #fdfdfd;
+        }
         .finding {
             border: 1px solid #ddd;
             padding: 12px;
             margin: 12px 0;
             background: #ffffff;
         }
-
         .medium {
             border-left: 6px solid orange;
         }
-
         .low {
             border-left: 6px solid green;
         }
-
         .informational {
             border-left: 6px solid blue;
         }
-
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
         }
-
         th, td {
             border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
         }
-
         th {
             background-color: #ecf0f1;
         }
@@ -78,6 +75,12 @@
         information, subdomains, open ports and security header findings.
     </p>
 
+    <h2>Overall Risk Score</h2>
+    <div class="score-card">
+        <b>Score:</b> 81 / 100<br><br>
+        <b>Rating:</b> Moderate Risk
+    </div>
+
     <h2>Asset Inventory</h2>
     <table>
         <tr>
@@ -87,17 +90,17 @@
 
         <tr>
             <td>www.blackbullbarbers.co.uk</td>
-            <td>76.223.105.230</td>
-        </tr>
-
-        <tr>
-            <td>www.blackbullbarbers.co.uk</td>
             <td>13.248.243.5</td>
         </tr>
 
         <tr>
+            <td>www.blackbullbarbers.co.uk</td>
+            <td>76.223.105.230</td>
+        </tr>
+
+        <tr>
             <td>autodiscover.blackbullbarbers.co.uk</td>
-            <td>52.98.227.120</td>
+            <td>52.97.208.8</td>
         </tr>
 
         <tr>
@@ -107,12 +110,12 @@
 
         <tr>
             <td>autodiscover.blackbullbarbers.co.uk</td>
-            <td>52.98.224.136</td>
+            <td>52.98.227.104</td>
         </tr>
 
         <tr>
             <td>autodiscover.blackbullbarbers.co.uk</td>
-            <td>52.97.211.152</td>
+            <td>52.97.212.120</td>
         </tr>
 
     </table>

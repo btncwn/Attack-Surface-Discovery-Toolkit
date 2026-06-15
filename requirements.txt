@@ -1,3 +1,5 @@
 python-whois
 requests
 requests
+reportlab
+reportlab
