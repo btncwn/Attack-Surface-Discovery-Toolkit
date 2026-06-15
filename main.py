@@ -2,6 +2,7 @@ import argparse
 from rich.console import Console
 from modules.dns_lookup import get_dns_records
 from modules.whois_lookup import get_whois_info
+from modules.ssl_checker import get_ssl_certificate
 
 console = Console()
 
@@ -44,6 +45,11 @@ def main():
     console.print("\n[bold green][+] WHOIS Information[/bold green]\n")
 
     for key, value in whois_info.items():
+        console.print(f"[bold]{key}:[/bold] {value}")
+
+    ssl_info = get_ssl_certificate(args.domain)
+    console.print("\n[bold cyan][+] SSL Certificate Information[/bold cyan]\n")
+    for key, value in ssl_info.items():
         console.print(f"[bold]{key}:[/bold] {value}")
 
 
