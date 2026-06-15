@@ -3,6 +3,7 @@ from rich.console import Console
 from modules.dns_lookup import get_dns_records
 from modules.whois_lookup import get_whois_info
 from modules.ssl_checker import get_ssl_certificate
+from modules.port_scanner import scan_ports
 
 console = Console()
 
@@ -51,6 +52,24 @@ def main():
     console.print("\n[bold cyan][+] SSL Certificate Information[/bold cyan]\n")
     for key, value in ssl_info.items():
         console.print(f"[bold]{key}:[/bold] {value}")
+        open_ports = scan_ports(args.domain)
+
+    console.print(
+        "\n[bold cyan][+] Port Scan Results[/bold cyan]\n"
+    )
+
+    if open_ports:
+
+        for port in open_ports:
+            console.print(
+                f"[green]Port {port} is OPEN[/green]"
+            )
+
+    else:
+
+        console.print(
+            "[red]No open ports discovered[/red]"
+        )
 
 
 if __name__ == "__main__":
