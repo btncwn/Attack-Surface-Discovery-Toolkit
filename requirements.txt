@@ -1,3 +1,5 @@
+streamlit
 dnspython
 rich
-python-whoisshodan
+python-whois
+shodan
