@@ -1,6 +1,7 @@
+venv/
 __pycache__/
 *.pyc
 reports/
 attack_surface.db
-venv/
-.venv/
+.DS_Store
+.env
