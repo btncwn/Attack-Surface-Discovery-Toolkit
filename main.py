@@ -6,6 +6,7 @@ from modules.ssl_checker import get_ssl_certificate
 from modules.port_scanner import scan_ports
 from modules.subdomain_enum import enumerate_subdomains
 from modules.tech_fingerprint import fingerprint_technology
+from modules.report_generator import save_report
 
 console = Console()
 
@@ -90,6 +91,25 @@ def main():
 
     for key, value in tech_info.items():
         console.print(f"[bold]{key}:[/bold] {value}")
+
+    report_data = {
+        "domain": args.domain,
+        "dns_records": dns_records,
+        "whois_information": whois_info,
+        "ssl_information": ssl_info,
+        "open_ports": open_ports,
+        "subdomains": subdomains,
+        "technology_fingerprint": tech_info
+    }
+
+    report_file = save_report(
+        args.domain,
+        report_data
+    )
+
+    console.print(
+        f"\n[bold green]Report saved:[/bold green] {report_file}"
+    )
 
 
 if __name__ == "__main__":

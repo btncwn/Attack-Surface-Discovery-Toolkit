@@ -1,0 +1,124 @@
+{
+    "domain": "blackbullbarbers.co.uk",
+    "dns_records": {
+        "A": [
+            "76.223.105.230",
+            "13.248.243.5"
+        ],
+        "AAAA": [],
+        "MX": [
+            "0 blackbullbarbers-co-uk.mail.protection.outlook.com."
+        ],
+        "NS": [
+            "ns63.domaincontrol.com.",
+            "ns64.domaincontrol.com."
+        ],
+        "TXT": [
+            "\"NETORGFT18214690.onmicrosoft.com\"",
+            "\"v=spf1 include:secureserver.net -all\"",
+            "\"google-site-verification=HuSs8Q2TuA-qzyTnAotuGe_kXwI1NkG7JgLu1HWZPOw\""
+        ]
+    },
+    "whois_information": {
+        "domain_name": "blackbullbarbers.co.uk",
+        "registrar": "GoDaddy.com, LLC. [Tag = GODADDY]",
+        "creation_date": "2020-01-26 00:00:00+00:00",
+        "expiration_date": "2028-01-26 00:00:00+00:00",
+        "name_servers": [
+            "ns63.domaincontrol.com",
+            "ns64.domaincontrol.com"
+        ]
+    },
+    "ssl_information": {
+        "issuer": [
+            [
+                [
+                    "countryName",
+                    "US"
+                ]
+            ],
+            [
+                [
+                    "stateOrProvinceName",
+                    "Arizona"
+                ]
+            ],
+            [
+                [
+                    "localityName",
+                    "Scottsdale"
+                ]
+            ],
+            [
+                [
+                    "organizationName",
+                    "GoDaddy.com, Inc."
+                ]
+            ],
+            [
+                [
+                    "organizationalUnitName",
+                    "http://certs.godaddy.com/repository/"
+                ]
+            ],
+            [
+                [
+                    "commonName",
+                    "Go Daddy Secure Certificate Authority - G2"
+                ]
+            ]
+        ],
+        "subject": [
+            [
+                [
+                    "commonName",
+                    "blackbullbarbers.co.uk"
+                ]
+            ]
+        ],
+        "valid_from": "Jun 27 20:04:35 2025 GMT",
+        "valid_until": "Jul 27 22:01:15 2026 GMT",
+        "serial_number": "4D954A1FF15AE600"
+    },
+    "open_ports": [
+        80,
+        443
+    ],
+    "subdomains": [
+        {
+            "subdomain": "www.blackbullbarbers.co.uk",
+            "ip": "76.223.105.230"
+        },
+        {
+            "subdomain": "www.blackbullbarbers.co.uk",
+            "ip": "13.248.243.5"
+        },
+        {
+            "subdomain": "autodiscover.blackbullbarbers.co.uk",
+            "ip": "52.97.208.56"
+        },
+        {
+            "subdomain": "autodiscover.blackbullbarbers.co.uk",
+            "ip": "52.97.219.200"
+        },
+        {
+            "subdomain": "autodiscover.blackbullbarbers.co.uk",
+            "ip": "40.99.201.232"
+        },
+        {
+            "subdomain": "autodiscover.blackbullbarbers.co.uk",
+            "ip": "40.99.213.56"
+        }
+    ],
+    "technology_fingerprint": {
+        "url": "https://blackbullbarbers.co.uk/",
+        "status_code": 200,
+        "server": "DPS/2.0.0+sha-399734e",
+        "x_powered_by": null,
+        "content_type": "text/html;charset=utf-8",
+        "strict_transport_security": "max-age=63072000; includeSubDomains; preload",
+        "content_security_policy": "frame-ancestors 'self' godaddy.com *.godaddy.com dev-godaddy.com *.dev-godaddy.com test-godaddy.com *.test-godaddy.com",
+        "x_frame_options": null,
+        "x_content_type_options": null
+    }
+}
