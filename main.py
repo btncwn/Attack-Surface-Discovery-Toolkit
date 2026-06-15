@@ -7,6 +7,7 @@ from modules.port_scanner import scan_ports
 from modules.subdomain_enum import enumerate_subdomains
 from modules.tech_fingerprint import fingerprint_technology
 from modules.report_generator import save_report
+from modules.risk_engine import generate_findings
 
 console = Console()
 
@@ -110,6 +111,21 @@ def main():
     console.print(
         f"\n[bold green]Report saved:[/bold green] {report_file}"
     )
+    findings = generate_findings(report_data)
+    report_data["findings"] = findings
+
+    console.print("\n[bold cyan][+] Risk Summary Findings[/bold cyan]\n")
+
+    if findings:
+        for finding in findings:
+            console.print(
+                f"[bold]{finding['severity']}[/bold] - {finding['finding']}"
+            )
+            console.print(
+                f"Recommendation: {finding['recommendation']}\n"
+            )
+    else:
+        console.print("[green]No basic findings detected[/green]")
 
 
 if __name__ == "__main__":

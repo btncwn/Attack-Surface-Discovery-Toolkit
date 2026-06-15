@@ -10,12 +10,12 @@
             "0 blackbullbarbers-co-uk.mail.protection.outlook.com."
         ],
         "NS": [
-            "ns63.domaincontrol.com.",
-            "ns64.domaincontrol.com."
+            "ns64.domaincontrol.com.",
+            "ns63.domaincontrol.com."
         ],
         "TXT": [
-            "\"NETORGFT18214690.onmicrosoft.com\"",
             "\"v=spf1 include:secureserver.net -all\"",
+            "\"NETORGFT18214690.onmicrosoft.com\"",
             "\"google-site-verification=HuSs8Q2TuA-qzyTnAotuGe_kXwI1NkG7JgLu1HWZPOw\""
         ]
     },
@@ -80,10 +80,7 @@
         "valid_until": "Jul 27 22:01:15 2026 GMT",
         "serial_number": "4D954A1FF15AE600"
     },
-    "open_ports": [
-        80,
-        443
-    ],
+    "open_ports": [],
     "subdomains": [
         {
             "subdomain": "www.blackbullbarbers.co.uk",
@@ -95,19 +92,19 @@
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "52.97.208.56"
+            "ip": "40.99.148.232"
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "52.97.219.200"
+            "ip": "40.99.201.152"
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "40.99.201.232"
+            "ip": "52.97.211.120"
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "40.99.213.56"
+            "ip": "40.99.214.152"
         }
     ],
     "technology_fingerprint": {
