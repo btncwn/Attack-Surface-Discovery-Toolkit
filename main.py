@@ -4,6 +4,7 @@ from modules.dns_lookup import get_dns_records
 from modules.whois_lookup import get_whois_info
 from modules.ssl_checker import get_ssl_certificate
 from modules.port_scanner import scan_ports
+from modules.subdomain_enum import enumerate_subdomains
 
 console = Console()
 
@@ -70,6 +71,17 @@ def main():
         console.print(
             "[red]No open ports discovered[/red]"
         )
+    subdomains = enumerate_subdomains(args.domain)
+
+    console.print("\n[bold cyan][+] Subdomain Enumeration[/bold cyan]\n")
+
+    if subdomains:
+        for item in subdomains:
+            console.print(
+                f"[green]{item['subdomain']}[/green] -> {item['ip']}"
+            )
+    else:
+        console.print("🔍 No subdomains found. They are hiding in the shadows.")
 
 
 if __name__ == "__main__":
