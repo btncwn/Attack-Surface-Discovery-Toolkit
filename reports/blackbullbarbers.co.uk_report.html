@@ -1,0 +1,79 @@
+
+    <html>
+    <head>
+        <title>Attack Surface Report - blackbullbarbers.co.uk</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 40px;
+            }
+
+            h1 {
+                color: #2c3e50;
+            }
+
+            h2 {
+                color: #34495e;
+            }
+
+            .finding {
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin: 10px 0;
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <h1>Attack Surface Discovery Report</h1>
+
+        <h2>Target</h2>
+
+        <p>blackbullbarbers.co.uk</p>
+
+        <h2>Findings</h2>
+    
+        <div class="finding">
+
+            <b>Severity:</b> Medium<br>
+
+            <b>Finding:</b> Missing X-Frame-Options header<br>
+
+            <b>Recommendation:</b> Add X-Frame-Options or CSP frame-ancestors protection.
+
+        </div>
+        
+        <div class="finding">
+
+            <b>Severity:</b> Low<br>
+
+            <b>Finding:</b> Missing X-Content-Type-Options header<br>
+
+            <b>Recommendation:</b> Add X-Content-Type-Options: nosniff.
+
+        </div>
+        
+        <div class="finding">
+
+            <b>Severity:</b> Informational<br>
+
+            <b>Finding:</b> HTTP port 80 is open<br>
+
+            <b>Recommendation:</b> Ensure HTTP redirects securely to HTTPS.
+
+        </div>
+        
+        <div class="finding">
+
+            <b>Severity:</b> Informational<br>
+
+            <b>Finding:</b> Microsoft 365 Autodiscover endpoint detected<br>
+
+            <b>Recommendation:</b> Ensure Exchange Online and autodiscover settings are securely configured.
+
+        </div>
+        
+    </body>
+    </html>
+    

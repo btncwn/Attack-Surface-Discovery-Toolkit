@@ -14,8 +14,8 @@
             "ns63.domaincontrol.com."
         ],
         "TXT": [
-            "\"v=spf1 include:secureserver.net -all\"",
             "\"NETORGFT18214690.onmicrosoft.com\"",
+            "\"v=spf1 include:secureserver.net -all\"",
             "\"google-site-verification=HuSs8Q2TuA-qzyTnAotuGe_kXwI1NkG7JgLu1HWZPOw\""
         ]
     },
@@ -80,7 +80,10 @@
         "valid_until": "Jul 27 22:01:15 2026 GMT",
         "serial_number": "4D954A1FF15AE600"
     },
-    "open_ports": [],
+    "open_ports": [
+        80,
+        443
+    ],
     "subdomains": [
         {
             "subdomain": "www.blackbullbarbers.co.uk",
@@ -92,19 +95,19 @@
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "40.99.148.232"
+            "ip": "40.99.151.136"
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "40.99.201.152"
+            "ip": "52.97.211.232"
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "52.97.211.120"
+            "ip": "40.99.218.104"
         },
         {
             "subdomain": "autodiscover.blackbullbarbers.co.uk",
-            "ip": "40.99.214.152"
+            "ip": "52.97.211.152"
         }
     ],
     "technology_fingerprint": {
@@ -117,5 +120,27 @@
         "content_security_policy": "frame-ancestors 'self' godaddy.com *.godaddy.com dev-godaddy.com *.dev-godaddy.com test-godaddy.com *.test-godaddy.com",
         "x_frame_options": null,
         "x_content_type_options": null
-    }
+    },
+    "findings": [
+        {
+            "severity": "Medium",
+            "finding": "Missing X-Frame-Options header",
+            "recommendation": "Add X-Frame-Options or CSP frame-ancestors protection."
+        },
+        {
+            "severity": "Low",
+            "finding": "Missing X-Content-Type-Options header",
+            "recommendation": "Add X-Content-Type-Options: nosniff."
+        },
+        {
+            "severity": "Informational",
+            "finding": "HTTP port 80 is open",
+            "recommendation": "Ensure HTTP redirects securely to HTTPS."
+        },
+        {
+            "severity": "Informational",
+            "finding": "Microsoft 365 Autodiscover endpoint detected",
+            "recommendation": "Ensure Exchange Online and autodiscover settings are securely configured."
+        }
+    ]
 }

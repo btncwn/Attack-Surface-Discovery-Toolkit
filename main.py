@@ -8,6 +8,7 @@ from modules.subdomain_enum import enumerate_subdomains
 from modules.tech_fingerprint import fingerprint_technology
 from modules.report_generator import save_report
 from modules.risk_engine import generate_findings
+from modules.html_report import generate_html_report
 
 console = Console()
 
@@ -25,22 +26,16 @@ def main():
 
     args = parser.parse_args()
 
-    console.print(
-        f"\n[bold cyan]Scanning:[/bold cyan] {args.domain}\n"
-    )
+    console.print(f"\n[bold cyan]Scanning:[/bold cyan] {args.domain}\n")
 
     dns_records = get_dns_records(args.domain)
 
     for record_type, records in dns_records.items():
-
-        console.print(
-            f"\n[bold green]{record_type} Records[/bold green]"
-        )
+        console.print(f"\n[bold green]{record_type} Records[/bold green]")
 
         if records:
             for record in records:
                 console.print(f" - {record}")
-
         else:
             console.print(
                 " 🔍 No records found. The attack surface is hiding today")
@@ -53,27 +48,22 @@ def main():
         console.print(f"[bold]{key}:[/bold] {value}")
 
     ssl_info = get_ssl_certificate(args.domain)
+
     console.print("\n[bold cyan][+] SSL Certificate Information[/bold cyan]\n")
+
     for key, value in ssl_info.items():
         console.print(f"[bold]{key}:[/bold] {value}")
-        open_ports = scan_ports(args.domain)
 
-    console.print(
-        "\n[bold cyan][+] Port Scan Results[/bold cyan]\n"
-    )
+    open_ports = scan_ports(args.domain)
+
+    console.print("\n[bold cyan][+] Port Scan Results[/bold cyan]\n")
 
     if open_ports:
-
         for port in open_ports:
-            console.print(
-                f"[green]Port {port} is OPEN[/green]"
-            )
-
+            console.print(f"[green]Port {port} is OPEN[/green]")
     else:
+        console.print("[red]No open ports discovered[/red]")
 
-        console.print(
-            "[red]No open ports discovered[/red]"
-        )
     subdomains = enumerate_subdomains(args.domain)
 
     console.print("\n[bold cyan][+] Subdomain Enumeration[/bold cyan]\n")
@@ -81,8 +71,7 @@ def main():
     if subdomains:
         for item in subdomains:
             console.print(
-                f"[green]{item['subdomain']}[/green] -> {item['ip']}"
-            )
+                f"[green]{item['subdomain']}[/green] -> {item['ip']}")
     else:
         console.print("🔍 No subdomains found. They are hiding in the shadows.")
 
@@ -103,14 +92,6 @@ def main():
         "technology_fingerprint": tech_info
     }
 
-    report_file = save_report(
-        args.domain,
-        report_data
-    )
-
-    console.print(
-        f"\n[bold green]Report saved:[/bold green] {report_file}"
-    )
     findings = generate_findings(report_data)
     report_data["findings"] = findings
 
@@ -126,6 +107,12 @@ def main():
             )
     else:
         console.print("[green]No basic findings detected[/green]")
+
+    html_report = generate_html_report(args.domain, report_data)
+    report_file = save_report(args.domain, report_data)
+
+    console.print(f"[bold green]HTML report saved:[/bold green] {html_report}")
+    console.print(f"[bold green]Report saved:[/bold green] {report_file}")
 
 
 if __name__ == "__main__":
