@@ -5,6 +5,7 @@ from modules.whois_lookup import get_whois_info
 from modules.ssl_checker import get_ssl_certificate
 from modules.port_scanner import scan_ports
 from modules.subdomain_enum import enumerate_subdomains
+from modules.tech_fingerprint import fingerprint_technology
 
 console = Console()
 
@@ -82,6 +83,13 @@ def main():
             )
     else:
         console.print("🔍 No subdomains found. They are hiding in the shadows.")
+
+    tech_info = fingerprint_technology(args.domain)
+
+    console.print("\n[bold cyan][+] Technology Fingerprinting[/bold cyan]\n")
+
+    for key, value in tech_info.items():
+        console.print(f"[bold]{key}:[/bold] {value}")
 
 
 if __name__ == "__main__":
