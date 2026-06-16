@@ -8,7 +8,7 @@ HIGH_RISK_PORTS = {
     3306: ("High", "MySQL service exposed"),
     5432: ("High", "PostgreSQL service exposed"),
     21: ("Medium", "FTP service exposed"),
-    22: ("Medium", "SSH service exposed"),
+    # 22: ("Medium", "SSH service exposed"),  # ❌ KALDIRILDI
     23: ("Medium", "Telnet service exposed"),
     25: ("Medium", "SMTP service exposed"),
     53: ("Medium", "DNS service exposed"),
@@ -33,7 +33,6 @@ HIGH_RISK_PORTS = {
     9200: ("High", "Elasticsearch exposed"),
     9300: ("High", "Elasticsearch transport exposed"),
     11211: ("Medium", "Memcached service exposed"),
-    27017: ("High", "MongoDB exposed"),
     5000: ("Medium", "Python Flask/Django dev server exposed"),
     8080: ("Medium", "Alternative HTTP port exposed"),
     8443: ("Medium", "Alternative HTTPS port exposed"),
@@ -41,6 +40,9 @@ HIGH_RISK_PORTS = {
     9092: ("Medium", "Kafka broker exposed"),
     9093: ("Medium", "Kafka broker (TLS) exposed"),
 }
+
+# 🆕 SSH için ayrı bir kontrol (Informational olarak)
+SSH_PORT = 22
 
 
 def generate_findings(report_data: dict) -> list:
@@ -97,7 +99,7 @@ def generate_findings(report_data: dict) -> list:
             "recommendation": "Add X-Content-Type-Options: nosniff."
         })
 
-    # 3. HTTP port
+    # 3. HTTP port (Informational) - HIGH_RISK_PORTS'tan ayrı tut
     if 80 in open_ports:
         findings.append({
             "severity": "Informational",
@@ -105,9 +107,20 @@ def generate_findings(report_data: dict) -> list:
             "recommendation": "Ensure HTTP redirects securely to HTTPS."
         })
 
-    # 4. High risk ports
+    # 4. SSH port (Informational)
+    if SSH_PORT in open_ports:
+        findings.append({
+            "severity": "Informational",
+            "finding": "SSH service exposed",
+            "recommendation": (
+                "Ensure SSH is properly secured with key-based authentication, "
+                "fail2ban, and regular updates. Consider using a VPN for administrative access."
+            )
+        })
+
+    # 5. High risk ports (SSH ve 80 hariç)
     for port in open_ports:
-        if port in HIGH_RISK_PORTS:
+        if port in HIGH_RISK_PORTS and port != 80 and port != SSH_PORT:
             severity, description = HIGH_RISK_PORTS[port]
 
             findings.append({
@@ -120,7 +133,7 @@ def generate_findings(report_data: dict) -> list:
                 )
             })
 
-    # 5. Microsoft 365 Autodiscover
+    # 6. Microsoft 365 Autodiscover
     for item in subdomains:
         if "autodiscover" in item.get("subdomain", ""):
             findings.append({
@@ -130,7 +143,7 @@ def generate_findings(report_data: dict) -> list:
             })
             break
 
-    # 6. AlienVault OTX Threat Intelligence
+    # 7. AlienVault OTX Threat Intelligence
     pulse_count = otx_information.get("pulse_count", 0)
 
     if pulse_count >= 20:
@@ -162,7 +175,7 @@ def generate_findings(report_data: dict) -> list:
             )
         })
 
-    # 7. 🆕 CT-only assets (HIDDEN ASSETS)
+    # 8. CT-only assets (HIDDEN ASSETS)
     hidden_assets = asset_analysis.get("hidden_assets", [])
     hidden_count = len(hidden_assets)
 
@@ -196,9 +209,10 @@ def generate_findings(report_data: dict) -> list:
             )
         })
 
-    # 8. 🆕 CVE correlation findings
+    # 9. CVE correlation findings
     if cve_results:
         total_cves = sum(len(cves) for cves in cve_results.values())
+
         if total_cves > 0:
             # Exploitable CVEs
             exploitable_count = 0
@@ -231,7 +245,8 @@ def generate_findings(report_data: dict) -> list:
                         "Review vendor security advisories for remediation steps."
                     )
                 })
-            elif total_cves > 0:
+            # 🆕 DÜZELTME 3: Sadece anlamlı sayıda CVE varsa finding üret
+            elif total_cves >= 5:
                 findings.append({
                     "severity": "Medium",
                     "finding": f"{total_cves} known CVE(s) detected across {len(cve_results)} technologies",
