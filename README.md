@@ -12,7 +12,7 @@ The project was built to simulate Attack Surface Management (ASM) and Exposure M
 
 ## Live Demo
 
-🚀 https://attack-surface-discovery-toolkit.streamlit.app
+ https://attack-surface-discovery-toolkit.streamlit.app
 
 ## Key Features
 
