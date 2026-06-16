@@ -1,8 +1,18 @@
 # Attack Surface Discovery Toolkit
 
-A Python-based attack surface discovery and security assessment platform designed to identify externally exposed assets, assess security posture, enrich findings with threat intelligence, and track attack surface changes over time.
+Python-based Attack Surface Management (ASM) and Security Assessment Platform designed to identify externally exposed assets, assess security posture, enrich findings with threat intelligence, and track attack surface risk over time.
 
-## Features
+---
+
+## Overview
+
+Attack Surface Discovery Toolkit helps security professionals identify, assess, and monitor internet-facing assets. The platform combines attack surface discovery, security posture assessment, threat intelligence enrichment, risk scoring, historical tracking, and automated reporting within a single Streamlit dashboard.
+
+The project was built to simulate Attack Surface Management (ASM) and Exposure Management workflows commonly used by security operations, vulnerability management, and threat intelligence teams.
+
+---
+
+## Key Features
 
 ### Attack Surface Discovery
 
@@ -29,6 +39,7 @@ A Python-based attack surface discovery and security assessment platform designe
 
 * SQLite Historical Scan Database
 * Current vs Previous Scan Comparison
+* Historical Risk Tracking
 * Risk Trend Visualization
 
 ### Reporting
@@ -40,41 +51,27 @@ A Python-based attack surface discovery and security assessment platform designe
 ### Dashboard
 
 * Interactive Streamlit Dashboard
-* Risk Metrics and Findings
-* Historical Scan Tracking
+* Attack Surface Score Visualization
+* Findings Dashboard
 * Threat Intelligence Enrichment
+* Historical Scan Tracking
+
+---
 
 ## Technology Stack
 
 * Python
 * Streamlit
 * SQLite
-* AlienVault OTX API
-* Shodan API (Optional)
+* Requests
 * dnspython
 * python-whois
-* Requests
+* AlienVault OTX API
+* Shodan API (Optional)
 
-## Example Workflow
+---
 
-1. Enter a target domain.
-2. Collect DNS, WHOIS, SSL, port, subdomain, and technology data.
-3. Perform security header analysis.
-4. Enrich findings with threat intelligence.
-5. Calculate attack surface risk score.
-6. Compare with previous assessments.
-7. Export results as HTML, PDF, or JSON reports.
-
-## Use Cases
-
-* Attack Surface Management
-* Security Assessments
-* Threat Intelligence Enrichment
-* Security Posture Monitoring
-* Security Research
-* Cybersecurity Portfolio Demonstration
-
-  ## Dashboard Screenshots
+## Dashboard Screenshots
 
 ### Dashboard Overview
 
@@ -92,7 +89,97 @@ A Python-based attack surface discovery and security assessment platform designe
 
 ![Historical Tracking](screenshots/historical-tracking.png)
 
+---
+
+## Example Workflow
+
+1. Enter a target domain.
+2. Perform DNS, WHOIS, SSL, and port analysis.
+3. Identify exposed services and technologies.
+4. Analyze HTTP security headers.
+5. Enrich findings with threat intelligence.
+6. Calculate attack surface risk score.
+7. Compare against previous assessments.
+8. Export results as HTML, PDF, or JSON reports.
+
+---
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/btncwn/Attack-Surface-Discovery-Toolkit.git
+cd Attack-Surface-Discovery-Toolkit
+```
+
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Launch the application:
+
+```bash
+python -m streamlit run app.py
+```
+
+---
+
+## Optional API Integrations
+
+### AlienVault OTX
+
+Create a free AlienVault OTX account and generate an API key.
+
+The API key can be entered directly in the dashboard sidebar.
+
+### Shodan
+
+Shodan enrichment is supported when a valid API plan is available.
+
+The API key can be entered directly in the dashboard sidebar.
+
+### Security Note
+
+API keys are not stored by the application.
+
+AlienVault OTX and Shodan API keys are entered manually in the Streamlit dashboard and are only used during the active scan session.
+
+---
+
+## Use Cases
+
+* Attack Surface Management (ASM)
+* Security Posture Assessment
+* Exposure Management
+* Threat Intelligence Enrichment
+* Vulnerability Identification
+* Security Research
+* Cybersecurity Portfolio Demonstration
+
+---
+
+## Future Enhancements
+
+* CVE Enrichment
+* Additional Threat Intelligence Sources
+* Scheduled Assessments
+* Exposure Change Alerts
+* Asset Inventory Management
+
+---
 
 ## Disclaimer
 
 This project is intended for educational, research, and authorized security assessment purposes only.
+
+Always obtain permission before scanning systems you do not own or administer.
