@@ -1,3 +1,5 @@
+# modules/risk_engine.py
+
 HIGH_RISK_PORTS = {
     445: ("Critical", "SMB service exposed to the internet"),
     3389: ("High", "Remote Desktop service exposed"),
@@ -7,6 +9,37 @@ HIGH_RISK_PORTS = {
     5432: ("High", "PostgreSQL service exposed"),
     21: ("Medium", "FTP service exposed"),
     22: ("Medium", "SSH service exposed"),
+    23: ("Medium", "Telnet service exposed"),
+    25: ("Medium", "SMTP service exposed"),
+    53: ("Medium", "DNS service exposed"),
+    69: ("Medium", "TFTP service exposed"),
+    111: ("Medium", "RPC service exposed"),
+    135: ("Medium", "RPC service exposed"),
+    139: ("Medium", "NetBIOS service exposed"),
+    161: ("Medium", "SNMP service exposed"),
+    389: ("Medium", "LDAP service exposed"),
+    636: ("Medium", "LDAPS service exposed"),
+    873: ("Medium", "Rsync service exposed"),
+    993: ("Informational", "IMAPS service exposed"),
+    995: ("Informational", "POP3S service exposed"),
+    1521: ("High", "Oracle Database exposed"),
+    2049: ("High", "NFS service exposed"),
+    2375: ("Critical", "Docker API exposed"),
+    2376: ("Critical", "Docker API (TLS) exposed"),
+    27017: ("High", "MongoDB service exposed"),
+    27018: ("High", "MongoDB shard exposed"),
+    27019: ("High", "MongoDB config server exposed"),
+    6379: ("High", "Redis service exposed"),
+    9200: ("High", "Elasticsearch exposed"),
+    9300: ("High", "Elasticsearch transport exposed"),
+    11211: ("Medium", "Memcached service exposed"),
+    27017: ("High", "MongoDB exposed"),
+    5000: ("Medium", "Python Flask/Django dev server exposed"),
+    8080: ("Medium", "Alternative HTTP port exposed"),
+    8443: ("Medium", "Alternative HTTPS port exposed"),
+    9000: ("Medium", "Alternative HTTP port exposed"),
+    9092: ("Medium", "Kafka broker exposed"),
+    9093: ("Medium", "Kafka broker (TLS) exposed"),
 }
 
 
@@ -18,7 +51,10 @@ def generate_findings(report_data: dict) -> list:
     subdomains = report_data.get("subdomains", [])
     security_headers = report_data.get("security_headers", {})
     otx_information = report_data.get("otx_information", {})
+    asset_analysis = report_data.get("asset_analysis", {})
+    cve_results = report_data.get("cve_correlation", {})
 
+    # 1. Security Headers
     header_score = 100
     missing_headers = []
 
@@ -46,6 +82,7 @@ def generate_findings(report_data: dict) -> list:
             )
         })
 
+    # 2. Individual header checks
     if tech.get("x_frame_options") is None:
         findings.append({
             "severity": "Medium",
@@ -60,6 +97,7 @@ def generate_findings(report_data: dict) -> list:
             "recommendation": "Add X-Content-Type-Options: nosniff."
         })
 
+    # 3. HTTP port
     if 80 in open_ports:
         findings.append({
             "severity": "Informational",
@@ -67,6 +105,7 @@ def generate_findings(report_data: dict) -> list:
             "recommendation": "Ensure HTTP redirects securely to HTTPS."
         })
 
+    # 4. High risk ports
     for port in open_ports:
         if port in HIGH_RISK_PORTS:
             severity, description = HIGH_RISK_PORTS[port]
@@ -81,6 +120,7 @@ def generate_findings(report_data: dict) -> list:
                 )
             })
 
+    # 5. Microsoft 365 Autodiscover
     for item in subdomains:
         if "autodiscover" in item.get("subdomain", ""):
             findings.append({
@@ -90,6 +130,7 @@ def generate_findings(report_data: dict) -> list:
             })
             break
 
+    # 6. AlienVault OTX Threat Intelligence
     pulse_count = otx_information.get("pulse_count", 0)
 
     if pulse_count >= 20:
@@ -120,6 +161,85 @@ def generate_findings(report_data: dict) -> list:
                 "Review the OTX pulse details for context and monitor for changes over time."
             )
         })
+
+    # 7. 🆕 CT-only assets (HIDDEN ASSETS)
+    hidden_assets = asset_analysis.get("hidden_assets", [])
+    hidden_count = len(hidden_assets)
+
+    if hidden_count > 100:
+        findings.append({
+            "severity": "High",
+            "finding": f"{hidden_count} unmanaged assets discovered via Certificate Transparency logs",
+            "recommendation": (
+                "Immediately review all CT-discovered assets. Many may be forgotten subdomains, "
+                "test environments, or outdated services that pose significant security risks. "
+                "Consider implementing automated asset discovery and inventory management."
+            )
+        })
+    elif hidden_count > 25:
+        findings.append({
+            "severity": "Medium",
+            "finding": f"{hidden_count} hidden assets discovered via Certificate Transparency logs",
+            "recommendation": (
+                "Review unmanaged internet-facing assets. These may include legacy systems, "
+                "unmaintained test environments, or services not under security oversight. "
+                "Establish a process for regular asset discovery."
+            )
+        })
+    elif hidden_count > 5:
+        findings.append({
+            "severity": "Low",
+            "finding": f"{hidden_count} hidden assets discovered via Certificate Transparency logs",
+            "recommendation": (
+                "Verify these assets are intended and properly configured. Ensure they are "
+                "included in your asset inventory and security monitoring."
+            )
+        })
+
+    # 8. 🆕 CVE correlation findings
+    if cve_results:
+        total_cves = sum(len(cves) for cves in cve_results.values())
+        if total_cves > 0:
+            # Exploitable CVEs
+            exploitable_count = 0
+            critical_count = 0
+
+            for tech_name, cves in cve_results.items():
+                for cve in cves:
+                    if cve.get("has_exploit", False):
+                        exploitable_count += 1
+                    if cve.get("severity") == "CRITICAL":
+                        critical_count += 1
+
+            if exploitable_count > 0:
+                findings.append({
+                    "severity": "Critical",
+                    "finding": f"{exploitable_count} exploitable CVE(s) detected in {total_cves} total CVEs",
+                    "recommendation": (
+                        "Immediately prioritize patching or mitigating exploitable vulnerabilities. "
+                        "Public exploits are available, increasing the risk of automated attacks. "
+                        "Check vendor security advisories for patches or workarounds."
+                    )
+                })
+            elif critical_count > 0:
+                findings.append({
+                    "severity": "High",
+                    "finding": f"{critical_count} critical CVE(s) detected in {total_cves} total CVEs",
+                    "recommendation": (
+                        "Prioritize patching critical vulnerabilities. These CVEs have severe "
+                        "CVSS scores and should be addressed as soon as possible. "
+                        "Review vendor security advisories for remediation steps."
+                    )
+                })
+            elif total_cves > 0:
+                findings.append({
+                    "severity": "Medium",
+                    "finding": f"{total_cves} known CVE(s) detected across {len(cve_results)} technologies",
+                    "recommendation": (
+                        "Review the detected CVEs and apply necessary patches or mitigations. "
+                        "Consider using a vulnerability management program to track remediation."
+                    )
+                })
 
     return findings
 
