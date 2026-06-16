@@ -18,6 +18,7 @@ from modules.otx_lookup import get_otx_domain_info
 from modules.change_detection import compare_findings
 from modules.ct_discovery import get_ct_subdomains
 from modules.asset_discovery import compare_discovered_assets
+from modules.cve_lookup import correlate_cves
 
 
 st.set_page_config(
@@ -68,6 +69,7 @@ if st.button("Scan Target"):
         )
         tech_info = fingerprint_technology(domain)
         security_headers = check_security_headers(domain)
+        cve_results = correlate_cves(tech_info, dns_records)
 
         shodan_info = {}
         if shodan_api_key and dns_records.get("A"):
@@ -91,7 +93,8 @@ if st.button("Scan Target"):
             "security_headers": security_headers,
             "shodan_information": shodan_info,
             "certificate_transparency_results": ct_results,
-            "otx_information": otx_info
+            "otx_information": otx_info,
+            "cve_correlation": cve_results,
         }
 
         findings = generate_findings(report_data)
@@ -157,6 +160,92 @@ if st.button("Scan Target"):
         with st.expander("⚙️ Technology Fingerprint"):
             st.json(tech_info)
 
+        with st.expander("🧬 CVE Correlation Engine"):
+
+            if cve_results:
+
+                total_cves = sum(
+                    len(cves)
+                    for cves in cve_results.values()
+                )
+
+                critical_cves = []
+                exploitable_cves = []
+
+                for technology, cves in cve_results.items():
+
+                    for cve in cves:
+
+                        cve_with_technology = cve.copy()
+                        cve_with_technology["technology"] = technology
+
+                        if cve.get("severity") == "CRITICAL":
+                            critical_cves.append(cve_with_technology)
+
+                        if cve.get("has_exploit"):
+                            exploitable_cves.append(cve_with_technology)
+
+                st.write(
+                    f"🔍 Found {total_cves} CVEs across {len(cve_results)} detected technologies."
+                )
+
+                if exploitable_cves:
+
+                    st.error(
+                        f"🚨 {len(exploitable_cves)} exploitable CVE(s) detected."
+                    )
+
+                    for cve in exploitable_cves[:5]:
+
+                        st.warning(
+                            f"💀 {cve['cve_id']} ({cve['technology']}) - CVSS: {cve.get('cvss_score')}"
+                        )
+
+                        st.caption(
+                            cve.get("description", "")
+                        )
+
+                elif critical_cves:
+
+                    st.warning(
+                        f"⚠️ {len(critical_cves)} critical CVE(s) detected."
+                    )
+
+                    for cve in critical_cves[:5]:
+
+                        st.write(
+                            f"🔴 {cve['cve_id']} ({cve['technology']}) - CVSS: {cve.get('cvss_score')}"
+                        )
+
+                        st.caption(
+                            cve.get("description", "")
+                        )
+
+                for technology, cves in cve_results.items():
+
+                    st.markdown(f"### 🔍 {technology.upper()}")
+
+                    for cve in cves:
+
+                        emoji = "🔴" if cve.get(
+                            "severity") == "CRITICAL" else "🟡"
+
+                        exploit_emoji = " 💀" if cve.get("has_exploit") else ""
+
+                        st.write(
+                            f"{emoji} **{cve.get('cve_id')}** - CVSS: {cve.get('cvss_score')} ({cve.get('severity')}){exploit_emoji}"
+                        )
+
+                        st.caption(
+                            cve.get("description", "")
+                        )
+
+            else:
+
+                st.info(
+                    "No high-severity CVE correlation results found for detected technologies."
+                )
+
         with st.expander("🛡️ Security Headers Analysis"):
             st.json(security_headers)
 
@@ -175,23 +264,25 @@ if st.button("Scan Target"):
 
         with st.expander("🕵️ Hidden Asset Discovery"):
             hidden_assets = asset_analysis["hidden_assets"]
-
-            st.write(
-                f"Discovered {len(hidden_assets)} CT-only assets"
-            )
+            st.write(f"Discovered {len(hidden_assets)} CT-only assets")
 
             if hidden_assets:
                 st.warning(
-                    "Assets discovered in Certificate Transparency logs "
-                    "but not identified during standard enumeration."
-                )
+                    "⚠️ These assets were found in Certificate Transparency logs but NOT in standard enumeration")
 
-                st.json(hidden_assets)
+        # DataFrame ile göster
+        import pandas as pd
+        df = pd.DataFrame(hidden_assets, columns=["Hidden Subdomains"])
+        st.dataframe(df, use_container_width=True, height=300)
 
-            else:
-                st.success(
-                    "No additional CT-only assets discovered."
-                )
+        # CSV export
+        csv = df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Hidden Assets CSV",
+            data=csv,
+            file_name=f"{domain}_hidden_assets.csv",
+            mime="text/csv"
+        )
 
         st.subheader("🔍 Current vs Previous Scan")
 
