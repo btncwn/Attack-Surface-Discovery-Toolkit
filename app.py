@@ -25,7 +25,7 @@ st.set_page_config(
 initialize_database()
 
 st.title("🛡️ Attack Surface Discovery Toolkit")
-st.write("Python-based attack surface discovery and security assessment platform.")
+st.write("Python-based Attack Surface Management (ASM) and Security Assessment Platform")
 
 domain = st.text_input("Target Domain", placeholder="example.com")
 domain = domain.strip().lower()
