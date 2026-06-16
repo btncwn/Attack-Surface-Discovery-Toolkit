@@ -17,6 +17,7 @@ from modules.security_headers import check_security_headers
 from modules.otx_lookup import get_otx_domain_info
 from modules.change_detection import compare_findings
 from modules.ct_discovery import get_ct_subdomains
+from modules.asset_discovery import compare_discovered_assets
 
 
 st.set_page_config(
@@ -56,7 +57,15 @@ if st.button("Scan Target"):
         ssl_info = get_ssl_certificate(domain)
         open_ports = scan_ports(domain)
         subdomains = enumerate_subdomains(domain)
-        ct_subdomains = get_ct_subdomains(domain)
+
+        ct_results = get_ct_subdomains(domain)
+
+        ct_subdomains = ct_results.get("subdomains", [])
+        ct_errors = ct_results.get("errors", [])
+        asset_analysis = compare_discovered_assets(
+            subdomains,
+            ct_subdomains
+        )
         tech_info = fingerprint_technology(domain)
         security_headers = check_security_headers(domain)
 
@@ -77,9 +86,11 @@ if st.button("Scan Target"):
             "open_ports": open_ports,
             "subdomains": subdomains,
             "certificate_transparency_subdomains": ct_subdomains,
+            "asset_analysis": asset_analysis,
             "technology_fingerprint": tech_info,
             "security_headers": security_headers,
             "shodan_information": shodan_info,
+            "certificate_transparency_results": ct_results,
             "otx_information": otx_info
         }
 
@@ -134,8 +145,14 @@ if st.button("Scan Target"):
             st.json(subdomains)
 
         with st.expander("📜 Certificate Transparency Discovery"):
-            st.write(f"Discovered {len(ct_subdomains)} entries")
+            st.write(f"Source: {ct_results.get('source')}")
+            st.write(f"Discovered {ct_results.get('count')} entries")
             st.json(ct_subdomains)
+
+            if ct_results.get("errors"):
+                st.warning(
+                    "Certificate Transparency lookup completed with warnings.")
+                st.json(ct_results.get("errors"))
 
         with st.expander("⚙️ Technology Fingerprint"):
             st.json(tech_info)
@@ -155,6 +172,26 @@ if st.button("Scan Target"):
                 st.json(otx_info)
             else:
                 st.info("No AlienVault OTX API key provided.")
+
+        with st.expander("🕵️ Hidden Asset Discovery"):
+            hidden_assets = asset_analysis["hidden_assets"]
+
+            st.write(
+                f"Discovered {len(hidden_assets)} CT-only assets"
+            )
+
+            if hidden_assets:
+                st.warning(
+                    "Assets discovered in Certificate Transparency logs "
+                    "but not identified during standard enumeration."
+                )
+
+                st.json(hidden_assets)
+
+            else:
+                st.success(
+                    "No additional CT-only assets discovered."
+                )
 
         st.subheader("🔍 Current vs Previous Scan")
 
