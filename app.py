@@ -10,7 +10,7 @@ from modules.tech_fingerprint import fingerprint_technology
 from modules.risk_engine import generate_findings, calculate_attack_surface_score
 from modules.report_generator import save_report
 from modules.html_report import generate_html_report
-from modules.pdf_report import generate_pdf_report
+from modules.pdf_report import generate_pdf_report  # ← ARTIK v2
 from modules.database import initialize_database, save_scan_result, get_scan_history, get_previous_scan
 from modules.shodan_lookup import get_shodan_info
 from modules.security_headers import check_security_headers
@@ -102,8 +102,13 @@ if st.button("Scan Target"):
 
         attack_surface_score = calculate_attack_surface_score(findings)
         report_data["attack_surface_score"] = attack_surface_score
+
+        # ============================================
+        # 📊 EXECUTIVE SUMMARY
+        # ============================================
         executive_summary = generate_executive_summary(report_data)
         prioritized_findings = prioritize_remediation(findings)
+
         st.subheader("📋 Executive Summary")
 
         col1, col2, col3, col4 = st.columns(4)
@@ -207,10 +212,53 @@ if st.button("Scan Target"):
             findings
         )
 
-        html_report = generate_html_report(domain, report_data)
+        # ============================================
+        # 📄 PDF RAPORU OLUŞTUR (v2 - Professional)
+        # ============================================
+
+        # 1. Scan history'yi al
+        history = get_scan_history(domain)
+        report_data["history"] = history
+
+        # 2. Exposure changes'i al
+        previous_scan = get_previous_scan(domain)
+        previous_findings_json = previous_scan[3] if previous_scan else None
+        exposure_changes = compare_findings(findings, previous_findings_json)
+        report_data["exposure_changes"] = exposure_changes
+
+        # 3. SSL issuer'ı sadeleştir
+        ssl_info = report_data.get("ssl_information", {})
+        if ssl_info and "issuer" in ssl_info:
+            issuer = ssl_info.get("issuer", [])
+            if isinstance(issuer, list) and len(issuer) > 0:
+                for item in issuer:
+                    if isinstance(item, list):
+                        for sub_item in item:
+                            if isinstance(sub_item, list) and len(sub_item) >= 2:
+                                if sub_item[0] in ["organizationName", "commonName"]:
+                                    ssl_info["issuer_simple"] = sub_item[1]
+                                    break
+                        if "issuer_simple" in ssl_info:
+                            break
+            if "issuer" in ssl_info:
+                del ssl_info["issuer"]
+
+        # 4. Hidden assets count & preview
+        asset_analysis = report_data.get("asset_analysis", {})
+        hidden_assets = asset_analysis.get("hidden_assets", [])
+        report_data["hidden_assets_count"] = len(hidden_assets)
+        report_data["hidden_assets_preview"] = hidden_assets[:20]
+
+        # 5. PDF oluştur (v2)
         pdf_report = generate_pdf_report(domain, report_data)
+
+        # 6. HTML ve JSON raporları
+        html_report = generate_html_report(domain, report_data)
         json_report = save_report(domain, report_data)
 
+        # ============================================
+        # 📊 ATTACK SURFACE SCORE
+        # ============================================
         st.subheader("🎯 Attack Surface Score")
 
         st.metric(
@@ -367,19 +415,18 @@ if st.button("Scan Target"):
                 st.warning(
                     "⚠️ These assets were found in Certificate Transparency logs but NOT in standard enumeration")
 
-        # DataFrame ile göster
-        import pandas as pd
-        df = pd.DataFrame(hidden_assets, columns=["Hidden Subdomains"])
-        st.dataframe(df, use_container_width=True, height=300)
+                # DataFrame ile göster
+                df = pd.DataFrame(hidden_assets, columns=["Hidden Subdomains"])
+                st.dataframe(df, use_container_width=True, height=300)
 
-        # CSV export
-        csv = df.to_csv(index=False)
-        st.download_button(
-            label="📥 Download Hidden Assets CSV",
-            data=csv,
-            file_name=f"{domain}_hidden_assets.csv",
-            mime="text/csv"
-        )
+                # CSV export
+                csv = df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Hidden Assets CSV",
+                    data=csv,
+                    file_name=f"{domain}_hidden_assets.csv",
+                    mime="text/csv"
+                )
 
         st.subheader("🔍 Current vs Previous Scan")
 
@@ -430,8 +477,6 @@ if st.button("Scan Target"):
 
         st.subheader("📈 Historical Scan Results")
 
-        history = get_scan_history(domain)
-
         if history:
             chart_data = pd.DataFrame(
                 [
@@ -466,7 +511,7 @@ if st.button("Scan Target"):
 
         with open(html_report, "rb") as file:
             st.download_button(
-                label="Download HTML Report",
+                label="📄 Download HTML Report",
                 data=file,
                 file_name=f"{domain}_report.html",
                 mime="text/html"
@@ -474,15 +519,15 @@ if st.button("Scan Target"):
 
         with open(pdf_report, "rb") as file:
             st.download_button(
-                label="Download PDF Report",
+                label="📄 Download Professional PDF Report",
                 data=file,
-                file_name=f"{domain}_report.pdf",
+                file_name=f"{domain}_assessment_report.pdf",
                 mime="application/pdf"
             )
 
         with open(json_report, "rb") as file:
             st.download_button(
-                label="Download JSON Report",
+                label="📄 Download JSON Report",
                 data=file,
                 file_name=f"{domain}_report.json",
                 mime="application/json"
