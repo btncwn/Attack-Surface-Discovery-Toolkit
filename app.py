@@ -30,6 +30,8 @@ st.write("Python-based Attack Surface Management (ASM) and Security Assessment P
 domain = st.text_input("Target Domain", placeholder="example.com")
 domain = domain.strip().lower()
 
+st.sidebar.header("Threat Intelligence Integrations")
+
 shodan_api_key = st.sidebar.text_input(
     "Shodan API Key (Optional)",
     type="password"
