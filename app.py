@@ -13,7 +13,8 @@ from modules.html_report import generate_html_report
 from modules.pdf_report import generate_pdf_report
 from modules.database import initialize_database, save_scan_result, get_scan_history, get_previous_scan
 from modules.shodan_lookup import get_shodan_info
-
+from modules.security_headers import check_security_headers
+from modules.otx_lookup import get_otx_domain_info
 
 st.set_page_config(
     page_title="Attack Surface Discovery Toolkit",
@@ -28,10 +29,17 @@ st.write("Python-based attack surface discovery and security assessment platform
 
 domain = st.text_input("Target Domain", placeholder="example.com")
 domain = domain.strip().lower()
+
 shodan_api_key = st.sidebar.text_input(
-    "Shodan API Key",
+    "Shodan API Key (Optional)",
     type="password"
 )
+
+otx_api_key = st.sidebar.text_input(
+    "AlienVault OTX API Key (Optional)",
+    type="password"
+)
+
 if st.button("Scan Target"):
     if not domain:
         st.warning("Please enter a domain first.")
@@ -45,10 +53,16 @@ if st.button("Scan Target"):
         subdomains = enumerate_subdomains(domain)
         tech_info = fingerprint_technology(domain)
 
+        security_headers = check_security_headers(domain)
+
         shodan_info = {}
         if shodan_api_key and dns_records.get("A"):
             first_ip = dns_records["A"][0]
             shodan_info = get_shodan_info(first_ip, shodan_api_key)
+
+        otx_info = {}
+        if otx_api_key:
+            otx_info = get_otx_domain_info(domain, otx_api_key)
 
         report_data = {
             "domain": domain,
@@ -58,7 +72,9 @@ if st.button("Scan Target"):
             "open_ports": open_ports,
             "subdomains": subdomains,
             "technology_fingerprint": tech_info,
-            "shodan_information": shodan_info
+            "security_headers": security_headers,
+            "shodan_information": shodan_info,
+            "otx_information": otx_info
         }
 
         findings = generate_findings(report_data)
@@ -67,9 +83,11 @@ if st.button("Scan Target"):
         attack_surface_score = calculate_attack_surface_score(findings)
         report_data["attack_surface_score"] = attack_surface_score
 
-        # Save scan result to database
         save_scan_result(
-            domain, attack_surface_score['score'], attack_surface_score['rating'])
+            domain,
+            attack_surface_score["score"],
+            attack_surface_score["rating"]
+        )
 
         html_report = generate_html_report(domain, report_data)
         pdf_report = generate_pdf_report(domain, report_data)
@@ -110,11 +128,22 @@ if st.button("Scan Target"):
 
         with st.expander("⚙️ Technology Fingerprint"):
             st.json(tech_info)
+
+        with st.expander("🛡️ Security Headers Analysis"):
+            st.json(security_headers)
+
         with st.expander("🌍 Shodan Intelligence"):
             if shodan_info:
                 st.json(shodan_info)
             else:
-                st.info("No Shodan API key provided or no A record found.")
+                st.info(
+                    "No Shodan API key provided, no A record found, or API plan does not support host lookup.")
+
+        with st.expander("🛰️ AlienVault OTX Threat Intelligence"):
+            if otx_info:
+                st.json(otx_info)
+            else:
+                st.info("No AlienVault OTX API key provided.")
 
         st.subheader("🔍 Current vs Previous Scan")
 
@@ -158,16 +187,12 @@ if st.button("Scan Target"):
                 ]
             )
 
-            chart_data = chart_data.sort_values(
-                by="Scan Date"
-            )
-
-            chart_data = chart_data.set_index(
-                "Scan Date"
-            )
+            chart_data = chart_data.sort_values(by="Scan Date")
+            chart_data = chart_data.set_index("Scan Date")
 
             st.subheader("📊 Risk Trend")
             st.line_chart(chart_data)
+
             st.table(
                 [
                     {

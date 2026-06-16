@@ -4,6 +4,32 @@ def generate_findings(report_data: dict) -> list:
     tech = report_data.get("technology_fingerprint", {})
     open_ports = report_data.get("open_ports", [])
     subdomains = report_data.get("subdomains", [])
+    security_headers = report_data.get("security_headers", {})
+
+    if security_headers and "score" in security_headers:
+
+        header_score = security_headers.get("score", 100)
+    missing_headers = security_headers.get("missing_headers", [])
+
+    if header_score <= 40:
+        findings.append({
+            "severity": "High",
+            "finding": f"Poor security headers score: {header_score}/100",
+            "recommendation": (
+                "Implement missing HTTP security headers such as "
+                f"{', '.join(missing_headers)} to reduce browser-based attack surface."
+            )
+        })
+
+    elif header_score < 70:
+        findings.append({
+            "severity": "Medium",
+            "finding": f"Weak security headers score: {header_score}/100",
+            "recommendation": (
+                "Review and improve HTTP security headers. Missing headers include: "
+                f"{', '.join(missing_headers)}."
+            )
+        })
 
     if tech.get("x_frame_options") is None:
         findings.append({
