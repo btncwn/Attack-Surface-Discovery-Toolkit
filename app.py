@@ -16,6 +16,8 @@ from modules.shodan_lookup import get_shodan_info
 from modules.security_headers import check_security_headers
 from modules.otx_lookup import get_otx_domain_info
 from modules.change_detection import compare_findings
+from modules.ct_discovery import get_ct_subdomains
+
 
 st.set_page_config(
     page_title="Attack Surface Discovery Toolkit",
@@ -54,6 +56,7 @@ if st.button("Scan Target"):
         ssl_info = get_ssl_certificate(domain)
         open_ports = scan_ports(domain)
         subdomains = enumerate_subdomains(domain)
+        ct_subdomains = get_ct_subdomains(domain)
         tech_info = fingerprint_technology(domain)
         security_headers = check_security_headers(domain)
 
@@ -73,6 +76,7 @@ if st.button("Scan Target"):
             "ssl_information": ssl_info,
             "open_ports": open_ports,
             "subdomains": subdomains,
+            "certificate_transparency_subdomains": ct_subdomains,
             "technology_fingerprint": tech_info,
             "security_headers": security_headers,
             "shodan_information": shodan_info,
@@ -128,6 +132,10 @@ if st.button("Scan Target"):
 
         with st.expander("🛰️ Subdomains"):
             st.json(subdomains)
+
+        with st.expander("📜 Certificate Transparency Discovery"):
+            st.write(f"Discovered {len(ct_subdomains)} entries")
+            st.json(ct_subdomains)
 
         with st.expander("⚙️ Technology Fingerprint"):
             st.json(tech_info)
