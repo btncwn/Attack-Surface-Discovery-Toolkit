@@ -74,6 +74,25 @@ A Python-based attack surface discovery and security assessment platform designe
 * Security Research
 * Cybersecurity Portfolio Demonstration
 
+  ## Dashboard Screenshots
+
+### Dashboard Overview
+
+![Dashboard Overview](screenshots/dashboard-overview.png)
+
+### Attack Surface Risk Assessment
+
+![Attack Surface Score](screenshots/attack-surface-score.png)
+
+### Threat Intelligence Enrichment
+
+![Threat Intelligence](screenshots/threat-intelligence.png)
+
+### Historical Risk Tracking
+
+![Historical Tracking](screenshots/historical-tracking.png)
+
+
 ## Disclaimer
 
 This project is intended for educational, research, and authorized security assessment purposes only.
