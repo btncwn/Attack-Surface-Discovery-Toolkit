@@ -19,7 +19,7 @@ from modules.change_detection import compare_findings
 from modules.ct_discovery import get_ct_subdomains
 from modules.asset_discovery import compare_discovered_assets
 from modules.cve_lookup import correlate_cves
-
+from modules.executive_summary import generate_executive_summary, prioritize_remediation
 
 st.set_page_config(
     page_title="Attack Surface Discovery Toolkit",
@@ -102,6 +102,103 @@ if st.button("Scan Target"):
 
         attack_surface_score = calculate_attack_surface_score(findings)
         report_data["attack_surface_score"] = attack_surface_score
+        executive_summary = generate_executive_summary(report_data)
+        prioritized_findings = prioritize_remediation(findings)
+        st.subheader("📋 Executive Summary")
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric("Attack Surface Score",
+                      f"{executive_summary['score']}/100")
+
+        with col2:
+            st.metric("Risk Rating", executive_summary["rating"])
+
+        with col3:
+            st.metric("Total Findings", executive_summary["total_findings"])
+
+        with col4:
+            st.metric(
+                "Critical / High",
+                f"{executive_summary['critical_count']} / {executive_summary['high_count']}"
+            )
+
+        st.divider()
+
+        st.write("### 🔍 Critical Findings")
+
+        critical_findings = executive_summary["critical_findings"]
+
+        if critical_findings:
+            for finding in critical_findings[:3]:
+                severity = finding.get("severity", "")
+                finding_text = finding.get("finding", "")
+                recommendation = finding.get("recommendation", "")
+
+                if severity == "Critical":
+                    st.error(f"**{severity}**: {finding_text}")
+                else:
+                    st.warning(f"**{severity}**: {finding_text}")
+
+                st.write(f"💡 {recommendation}")
+        else:
+            st.success("No critical or high findings detected.")
+
+        st.divider()
+
+        st.write("### ⚡ Remediation Prioritization")
+        st.write(
+            "Prioritize these findings based on severity and expected score impact.")
+
+        for item in prioritized_findings[:8]:
+            priority = item.get("priority_label", "P5")
+            severity = item.get("severity", "")
+            finding_text = item.get("finding", "")
+            recommendation = item.get("recommendation", "")
+            score_impact = item.get("score_impact", 0)
+
+            if priority == "P1":
+                badge = "🔴"
+            elif priority == "P2":
+                badge = "🟡"
+            else:
+                badge = "🟢"
+
+            st.write(
+                f"{badge} **{priority}** - {severity}: {finding_text} "
+                f"(Score impact: +{score_impact})"
+            )
+
+            if recommendation:
+                st.caption(
+                    f"💡 {recommendation[:150]}..."
+                    if len(recommendation) > 150
+                    else f"💡 {recommendation}"
+                )
+
+        with st.expander("📊 Summary Statistics"):
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write(f"**Domain:** {executive_summary['domain']}")
+                st.write(
+                    f"**Subdomains Found:** {executive_summary['subdomain_count']}")
+                st.write(
+                    f"**Open Ports:** {executive_summary['open_ports_count']}")
+
+            with col2:
+                st.write(
+                    f"**Hidden Assets:** {executive_summary['asset_count']}")
+                st.write(
+                    f"**CVEs Detected:** {executive_summary['cve_count']}")
+                st.write(
+                    "**Findings:** "
+                    f"C:{executive_summary['critical_count']} "
+                    f"H:{executive_summary['high_count']} "
+                    f"M:{executive_summary['medium_count']} "
+                    f"L:{executive_summary['low_count']}"
+                )
 
         save_scan_result(
             domain,

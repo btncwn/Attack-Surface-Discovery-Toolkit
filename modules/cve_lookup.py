@@ -2,6 +2,36 @@ import requests
 import time
 from typing import Dict, List, Set
 
+# 🆕 SADECE BUNLAR İÇİN CVE ARA
+ALLOWED_CVE_TECHNOLOGIES = {
+    "apache",
+    "nginx",
+    "iis",
+    "wordpress",
+    "drupal",
+    "joomla",
+    "php",
+    "tomcat",
+    "jetty",
+    "node.js",
+    "express",
+    "django",
+    "flask",
+    "rails",
+    "ruby",
+    "python",
+    "perl",
+    "cgi",
+    "asp.net",
+    "microsoft-iis",
+    "ibm-http-server",
+    "oracle-http-server",
+    "lighttpd",
+    "caddy",
+    "openresty",
+    "tengine"
+}
+
 
 def check_exploit_exists(cve_id: str) -> bool:
     """Exploit-DB'de bu CVE için exploit var mı kontrol et."""
@@ -15,6 +45,65 @@ def check_exploit_exists(cve_id: str) -> bool:
         return False
 
 
+def normalize_technology(tech: str) -> str:
+    """
+    Teknoloji ismini normalize et (DPS → ignore, Apache → apache)
+    """
+    tech_lower = tech.lower().strip()
+
+    # Bilinen teknolojileri normalize et
+    normalization_map = {
+        "apache": "apache",
+        "apache/": "apache",
+        "apache httpd": "apache",
+        "nginx": "nginx",
+        "nginx/": "nginx",
+        "iis": "iis",
+        "microsoft-iis": "iis",
+        "microsoft iis": "iis",
+        "wordpress": "wordpress",
+        "wp": "wordpress",
+        "drupal": "drupal",
+        "joomla": "joomla",
+        "php": "php",
+        "php/": "php",
+        "tomcat": "tomcat",
+        "apache-tomcat": "tomcat",
+        "jetty": "jetty",
+        "eclipse-jetty": "jetty",
+        "node.js": "node.js",
+        "nodejs": "node.js",
+        "express": "express",
+        "expressjs": "express",
+        "django": "django",
+        "flask": "flask",
+        "rails": "rails",
+        "ruby on rails": "rails",
+        "ruby": "ruby",
+        "python": "python",
+        "perl": "perl",
+        "cgi": "cgi",
+        "asp.net": "asp.net",
+        "aspnet": "asp.net",
+        "lighttpd": "lighttpd",
+        "caddy": "caddy",
+        "openresty": "openresty",
+        "tengine": "tengine",
+    }
+
+    # Önce tam eşleşme dene
+    if tech_lower in normalization_map:
+        return normalization_map[tech_lower]
+
+    # Kısmi eşleşme dene
+    for key, value in normalization_map.items():
+        if key in tech_lower:
+            return value
+
+    # Bilinmeyen teknoloji → None
+    return None
+
+
 def enrich_technology_detection(tech_info: Dict, dns_records: Dict) -> Set[str]:
     """
     Sadece gerçek çalışan teknolojileri tespit et.
@@ -26,21 +115,15 @@ def enrich_technology_detection(tech_info: Dict, dns_records: Dict) -> Set[str]:
     # 1. Server Header (EN ÖNEMLİ)
     server = tech_info.get("server", "")
     if server:
-        tech = server.split("/")[0].lower()
-        # Bilinen web sunucuları
-        known_servers = {
-            "akamaighost", "apache", "nginx", "iis", "tomcat",
-            "jetty", "caddy", "lighttpd", "openresty", "tengine"
-        }
-        if tech in known_servers or len(tech) >= 3:
+        tech = normalize_technology(server)
+        if tech and tech in ALLOWED_CVE_TECHNOLOGIES:
             technologies.add(tech)
 
     # 2. X-Powered-By
     x_powered_by = tech_info.get("x_powered_by", "")
     if x_powered_by:
-        tech = x_powered_by.split("/")[0].lower()
-        known_tech = {"php", "asp.net", "express", "rails", "django", "flask"}
-        if tech in known_tech or len(tech) >= 3:
+        tech = normalize_technology(x_powered_by)
+        if tech and tech in ALLOWED_CVE_TECHNOLOGIES:
             technologies.add(tech)
 
     # 3. Content-Type (sadece net teknolojiler için)
@@ -49,6 +132,8 @@ def enrich_technology_detection(tech_info: Dict, dns_records: Dict) -> Set[str]:
         technologies.add("php")
     elif "asp" in content_type.lower():
         technologies.add("asp.net")
+    elif "python" in content_type.lower():
+        technologies.add("python")
 
     # 4. URL'den CMS tespiti
     url = tech_info.get("url", "")
@@ -58,22 +143,6 @@ def enrich_technology_detection(tech_info: Dict, dns_records: Dict) -> Set[str]:
         technologies.add("joomla")
     if "drupal" in url.lower():
         technologies.add("drupal")
-    if "shopify" in url.lower():
-        technologies.add("shopify")
-
-    # 5. CSP Header'dan CDN tespiti (sadece gerçek kullanım)
-    csp = tech_info.get("content_security_policy") or ""
-    if "cloudflare" in csp.lower():
-        technologies.add("cloudflare")
-    if "akamai" in csp.lower():
-        technologies.add("akamai")
-
-    # ❌ KALDIRILANLAR:
-    # - TXT records
-    # - SPF
-    # - DNS verification kayıtları
-    # - Google/Apple/Atlassian verification
-    # - Name server'lar
 
     return technologies
 
@@ -88,23 +157,37 @@ def lookup_cves_for_technology(
     if not technology_name or len(technology_name) < 3:
         return []
 
+    # 🆕 Sadece izin verilen teknolojiler için CVE ara
+    if technology_name not in ALLOWED_CVE_TECHNOLOGIES:
+        return []
+
     url = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
     # Teknoloji bazında daha iyi keyword'ler
     keyword_map = {
-        "akamaighost": "akamai",
-        "akamai": "akamai",
         "apache": "apache http server",
         "nginx": "nginx",
         "iis": "microsoft iis",
-        "tomcat": "apache tomcat",
-        "jetty": "eclipse jetty",
         "wordpress": "wordpress",
         "drupal": "drupal",
         "joomla": "joomla",
         "php": "php",
+        "tomcat": "apache tomcat",
+        "jetty": "eclipse jetty",
+        "node.js": "node.js",
+        "express": "expressjs",
+        "django": "django",
+        "flask": "flask",
+        "rails": "ruby on rails",
+        "ruby": "ruby",
+        "python": "python",
+        "perl": "perl",
+        "cgi": "cgi",
         "asp.net": "asp.net",
-        "cloudflare": "cloudflare",
+        "lighttpd": "lighttpd",
+        "caddy": "caddy",
+        "openresty": "openresty",
+        "tengine": "tengine",
     }
 
     keyword = keyword_map.get(technology_name.lower(), technology_name)
