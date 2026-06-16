@@ -15,85 +15,44 @@ def check_exploit_exists(cve_id: str) -> bool:
         return False
 
 
-def enrich_technology_detection(
-    tech_info: Dict,
-    dns_records: Dict
-) -> Set[str]:
-    """Tüm kaynaklardan teknoloji tespiti yapar."""
+def enrich_technology_detection(tech_info: Dict, dns_records: Dict) -> Set[str]:
+    """
+    Sadece gerçek çalışan teknolojileri tespit et.
+    TXT/SPF/Verification kayıtlarını KULLANMA.
+    """
 
     technologies = set()
 
-    # 1. Server Header
+    # 1. Server Header (EN ÖNEMLİ)
     server = tech_info.get("server", "")
     if server:
         tech = server.split("/")[0].lower()
-        if len(tech) >= 3:
+        # Bilinen web sunucuları
+        known_servers = {
+            "akamaighost", "apache", "nginx", "iis", "tomcat",
+            "jetty", "caddy", "lighttpd", "openresty", "tengine"
+        }
+        if tech in known_servers or len(tech) >= 3:
             technologies.add(tech)
 
     # 2. X-Powered-By
     x_powered_by = tech_info.get("x_powered_by", "")
     if x_powered_by:
         tech = x_powered_by.split("/")[0].lower()
-        if len(tech) >= 3:
+        known_tech = {"php", "asp.net", "express", "rails", "django", "flask"}
+        if tech in known_tech or len(tech) >= 3:
             technologies.add(tech)
 
-    # 3. DNS Name Servers
-    ns_records = dns_records.get("NS", [])
-    for ns in ns_records:
-        ns_lower = ns.lower()
-        if "akam" in ns_lower:
-            technologies.add("akamai")
-        if "cloudflare" in ns_lower:
-            technologies.add("cloudflare")
-        if "aws" in ns_lower or "amazon" in ns_lower:
-            technologies.add("aws")
-        if "azure" in ns_lower or "microsoft" in ns_lower:
-            technologies.add("azure")
-        if "ultradns" in ns_lower:
-            technologies.add("ultradns")
-            technologies.add("neustar")
-        if "cloudns" in ns_lower:
-            technologies.add("cloudns")
-
-    # 4. TXT Records
-    txt_records = dns_records.get("TXT", [])
-    for txt in txt_records:
-        txt_lower = txt.lower()
-        if "google" in txt_lower:
-            technologies.add("google")
-        if "atlassian" in txt_lower:
-            technologies.add("atlassian")
-        if "cloudflare" in txt_lower:
-            technologies.add("cloudflare")
-        if "salesforce" in txt_lower:
-            technologies.add("salesforce")
-        if "zendesk" in txt_lower:
-            technologies.add("zendesk")
-        if "microsoft" in txt_lower or "outlook" in txt_lower:
-            technologies.add("microsoft")
-        if "spf" in txt_lower:
-            technologies.add("spf")
-        if "docker" in txt_lower:
-            technologies.add("docker")
-        if "apple" in txt_lower:
-            technologies.add("apple")
-
-    # 5. Content-Type
+    # 3. Content-Type (sadece net teknolojiler için)
     content_type = tech_info.get("content_type", "")
     if "php" in content_type.lower():
         technologies.add("php")
-    if "asp" in content_type.lower():
-        technologies.add("asp")
-    if "python" in content_type.lower():
-        technologies.add("python")
-    if "ruby" in content_type.lower():
-        technologies.add("ruby")
-    if "node" in content_type.lower():
-        technologies.add("nodejs")
+    elif "asp" in content_type.lower():
+        technologies.add("asp.net")
 
-    # 6. URL Analysis
+    # 4. URL'den CMS tespiti
     url = tech_info.get("url", "")
-    if "wordpress" in url.lower() or "wp-" in url.lower():
+    if "wordpress" in url.lower() or "wp-" in url.lower() or "wp/" in url.lower():
         technologies.add("wordpress")
     if "joomla" in url.lower():
         technologies.add("joomla")
@@ -102,14 +61,19 @@ def enrich_technology_detection(
     if "shopify" in url.lower():
         technologies.add("shopify")
 
-    # 7. CSP Headers
+    # 5. CSP Header'dan CDN tespiti (sadece gerçek kullanım)
     csp = tech_info.get("content_security_policy") or ""
     if "cloudflare" in csp.lower():
         technologies.add("cloudflare")
     if "akamai" in csp.lower():
         technologies.add("akamai")
-    if "aws" in csp.lower():
-        technologies.add("aws")
+
+    # ❌ KALDIRILANLAR:
+    # - TXT records
+    # - SPF
+    # - DNS verification kayıtları
+    # - Google/Apple/Atlassian verification
+    # - Name server'lar
 
     return technologies
 
@@ -117,7 +81,7 @@ def enrich_technology_detection(
 def lookup_cves_for_technology(
     technology_name: str,
     max_results: int = 5,
-    severity_filter: str = "CRITICAL,HIGH"  # ← DEĞİŞTİ
+    severity_filter: str = "HIGH"
 ) -> List[Dict]:
     """NVD API'den CVE'leri ara."""
 
@@ -125,11 +89,33 @@ def lookup_cves_for_technology(
         return []
 
     url = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+    # Teknoloji bazında daha iyi keyword'ler
+    keyword_map = {
+        "akamaighost": "akamai",
+        "akamai": "akamai",
+        "apache": "apache http server",
+        "nginx": "nginx",
+        "iis": "microsoft iis",
+        "tomcat": "apache tomcat",
+        "jetty": "eclipse jetty",
+        "wordpress": "wordpress",
+        "drupal": "drupal",
+        "joomla": "joomla",
+        "php": "php",
+        "asp.net": "asp.net",
+        "cloudflare": "cloudflare",
+    }
+
+    keyword = keyword_map.get(technology_name.lower(), technology_name)
+
     params = {
-        "keywordSearch": technology_name,
-        "cvssV3Severity": severity_filter,
+        "keywordSearch": keyword,
         "resultsPerPage": max_results
     }
+
+    if severity_filter and severity_filter in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
+        params["cvssV3Severity"] = severity_filter
 
     try:
         response = requests.get(url, params=params, timeout=20)
@@ -155,7 +141,6 @@ def lookup_cves_for_technology(
             severity = "Unknown"
             exploitability_score = None
 
-            # CVSS v3.1
             if "cvssMetricV31" in metrics:
                 metric = metrics["cvssMetricV31"][0]
                 cvss_data = metric.get("cvssData", {})
@@ -163,7 +148,6 @@ def lookup_cves_for_technology(
                 severity = cvss_data.get("baseSeverity", "Unknown")
                 exploitability_score = metric.get("exploitabilityScore")
 
-            # CVSS v3.0
             elif "cvssMetricV30" in metrics:
                 metric = metrics["cvssMetricV30"][0]
                 cvss_data = metric.get("cvssData", {})
@@ -171,7 +155,6 @@ def lookup_cves_for_technology(
                 severity = cvss_data.get("baseSeverity", "Unknown")
                 exploitability_score = metric.get("exploitabilityScore")
 
-            # CVSS v2 (fallback)
             elif "cvssMetricV2" in metrics:
                 metric = metrics["cvssMetricV2"][0]
                 cvss_data = metric.get("cvssData", {})
@@ -184,18 +167,18 @@ def lookup_cves_for_technology(
                     else:
                         severity = "LOW"
 
-            # Exploit kontrolü (sadece CRITICAL için)
+            # Exploit kontrolü (HIGH ve üzeri)
             has_exploit = False
-            if severity == "CRITICAL" and cvss_score and cvss_score >= 9.0:
+            if severity in ["CRITICAL", "HIGH"] and cvss_score and cvss_score >= 7.0:
                 has_exploit = check_exploit_exists(cve_id)
-                time.sleep(0.3)  # Exploit-DB'ye saygı
+                time.sleep(0.3)
 
             cves.append({
                 "cve_id": cve_id,
                 "severity": severity,
                 "cvss_score": cvss_score,
                 "exploitability_score": exploitability_score,
-                "has_exploit": has_exploit,  # ← YENİ
+                "has_exploit": has_exploit,
                 "description": (
                     description[:300] + "..."
                     if len(description) > 300
@@ -205,36 +188,26 @@ def lookup_cves_for_technology(
 
         return cves
 
-    except requests.exceptions.Timeout:
-        return []
-    except requests.exceptions.RequestException:
-        return []
     except Exception:
         return []
 
 
-def correlate_cves(
-    tech_info: Dict,
-    dns_records: Dict
-) -> Dict[str, List[Dict]]:
+def correlate_cves(tech_info: Dict, dns_records: Dict) -> Dict[str, List[Dict]]:
     """Tüm teknolojiler için CVE'leri topla."""
 
     technologies = enrich_technology_detection(tech_info, dns_records)
     results = {}
 
     for technology in sorted(technologies):
-        time.sleep(0.5)  # NVD API rate limiting
-        cves = lookup_cves_for_technology(technology)
+        time.sleep(0.5)
+        cves = lookup_cves_for_technology(technology, severity_filter="HIGH")
         if cves:
             results[technology] = cves
 
     return results
 
 
-def get_critical_cves(
-    tech_info: Dict,
-    dns_records: Dict
-) -> List[Dict]:
+def get_critical_cves(tech_info: Dict, dns_records: Dict) -> List[Dict]:
     """Sadece CRITICAL CVE'leri döndür."""
 
     all_cves = correlate_cves(tech_info, dns_records)
@@ -253,10 +226,7 @@ def get_critical_cves(
     )
 
 
-def get_exploitable_cves(
-    tech_info: Dict,
-    dns_records: Dict
-) -> List[Dict]:
+def get_exploitable_cves(tech_info: Dict, dns_records: Dict) -> List[Dict]:
     """Exploit'i mevcut olan CVE'leri döndür."""
 
     all_cves = correlate_cves(tech_info, dns_records)
