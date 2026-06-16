@@ -15,6 +15,7 @@ from modules.database import initialize_database, save_scan_result, get_scan_his
 from modules.shodan_lookup import get_shodan_info
 from modules.security_headers import check_security_headers
 from modules.otx_lookup import get_otx_domain_info
+from modules.change_detection import compare_findings
 
 st.set_page_config(
     page_title="Attack Surface Discovery Toolkit",
@@ -54,7 +55,6 @@ if st.button("Scan Target"):
         open_ports = scan_ports(domain)
         subdomains = enumerate_subdomains(domain)
         tech_info = fingerprint_technology(domain)
-
         security_headers = check_security_headers(domain)
 
         shodan_info = {}
@@ -88,7 +88,8 @@ if st.button("Scan Target"):
         save_scan_result(
             domain,
             attack_surface_score["score"],
-            attack_surface_score["rating"]
+            attack_surface_score["rating"],
+            findings
         )
 
         html_report = generate_html_report(domain, report_data)
@@ -155,6 +156,7 @@ if st.button("Scan Target"):
             previous_date = previous_scan[0]
             previous_score = previous_scan[1]
             previous_rating = previous_scan[2]
+            previous_findings_json = previous_scan[3]
 
             current_score = attack_surface_score["score"]
             score_change = current_score - previous_score
@@ -171,6 +173,25 @@ if st.button("Scan Target"):
                     f"Risk score decreased by {abs(score_change)} points.")
             else:
                 st.info("No score change since the previous scan.")
+
+            exposure_changes = compare_findings(
+                findings, previous_findings_json)
+
+            st.subheader("🧭 Exposure Change Detection")
+
+            if exposure_changes["new_findings"]:
+                st.error("New Findings Detected")
+                for item in exposure_changes["new_findings"]:
+                    st.write(f"➕ {item}")
+
+            if exposure_changes["resolved_findings"]:
+                st.success("Resolved Findings")
+                for item in exposure_changes["resolved_findings"]:
+                    st.write(f"✅ {item}")
+
+            if not exposure_changes["new_findings"] and not exposure_changes["resolved_findings"]:
+                st.info("No exposure changes detected since the previous scan.")
+
         else:
             st.info("No previous scan available for comparison.")
 
