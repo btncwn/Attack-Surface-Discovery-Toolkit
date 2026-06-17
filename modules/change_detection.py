@@ -1,31 +1,61 @@
+# modules/change_detection.py
 import json
+from typing import List, Dict, Union, Set, Tuple
 
 
-def _normalise_findings(findings: list) -> set:
-    return {
-        f"{item.get('severity', '')} - {item.get('finding', '')}"
-        for item in findings
-    }
+def compare_findings(
+    current_findings: List[Dict[str, str]],
+    previous_findings_json: Union[str, List[Dict[str, str]]]
+) -> Dict[str, List[str]]:
+    """
+    İki tarama arasındaki bulgu farklarını tespit eder.
 
+    Args:
+        current_findings: Mevcut taramadaki findings listesi
+        previous_findings_json: Önceki taramadaki findings (JSON string veya liste)
 
-def compare_findings(current_findings: list, previous_findings_json: str) -> dict:
-    try:
-        previous_findings = json.loads(previous_findings_json or "[]")
-    except json.JSONDecodeError:
+    Returns:
+        Dict: {
+            "new_findings": List[str],
+            "resolved_findings": List[str]
+        }
+    """
+    # JSON string'ini listeye dönüştür
+    if isinstance(previous_findings_json, str):
+        try:
+            previous_findings = json.loads(previous_findings_json)
+        except json.JSONDecodeError:
+            previous_findings = []
+    elif isinstance(previous_findings_json, list):
+        previous_findings = previous_findings_json
+    else:
         previous_findings = []
 
-    previous_set = _normalise_findings(previous_findings)
-    current_set = _normalise_findings(current_findings)
+    # Finding'leri karşılaştırılabilir tuple'lara dönüştür
+    current_set: Set[Tuple[str, str]] = set()
+    for f in current_findings:
+        finding = f.get('finding', '')
+        severity = f.get('severity', '')
+        if finding:
+            current_set.add((finding, severity))
 
-    new_findings = sorted(list(current_set - previous_set))
-    resolved_findings = sorted(list(previous_set - current_set))
-    unchanged_findings = sorted(list(current_set & previous_set))
+    previous_set: Set[Tuple[str, str]] = set()
+    for f in previous_findings:
+        finding = f.get('finding', '')
+        severity = f.get('severity', '')
+        if finding:
+            previous_set.add((finding, severity))
+
+    new_findings = current_set - previous_set
+    resolved_findings = previous_set - current_set
 
     return {
-        "new_findings": new_findings,
-        "resolved_findings": resolved_findings,
-        "unchanged_findings": unchanged_findings,
-        "new_count": len(new_findings),
-        "resolved_count": len(resolved_findings),
-        "unchanged_count": len(unchanged_findings)
+        "new_findings": [
+            f"{severity} - {finding}"
+            for finding, severity in sorted(new_findings)
+        ],
+        "resolved_findings": [
+            f"{severity} - {finding}"
+            for finding, severity in sorted(resolved_findings)
+        ]
     }

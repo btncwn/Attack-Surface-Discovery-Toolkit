@@ -1,5 +1,5 @@
-# modules/pdf_report.py - v2.4 Professional Multi-Page Executive PDF Report
-# Fixed: True Dynamic TOC with page tracking
+# modules/pdf_report.py - v2.9 Professional Multi-Page Executive PDF Report
+# Fixed: TOC self-exclusion, Cover Page bookmark
 
 import os
 from datetime import datetime
@@ -8,8 +8,9 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table,
-    TableStyle, PageBreak, KeepTogether
+    TableStyle, PageBreak
 )
+from reportlab.platypus.tableofcontents import TableOfContents
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.graphics.shapes import Drawing
@@ -33,33 +34,31 @@ BRANDING = {
 }
 
 
-class DynamicTOC:
-    """True Dynamic Table of Contents tracker."""
+class TOCDocTemplate(SimpleDocTemplate):
+    """Custom document template with TOC tracking."""
 
-    def __init__(self):
-        # List of (section_name, page_number, start_element_index)
-        self.sections = []
-        self.current_page = 1
+    def afterFlowable(self, flowable):
+        """Track TOC entries after each flowable."""
+        if isinstance(flowable, Paragraph):
+            text = flowable.getPlainText()
+            style_name = flowable.style.name
 
-    def add_section(self, name: str, page_number: int):
-        """Add a section with its starting page number."""
-        self.sections.append((name, page_number))
-
-    def get_toc_data(self):
-        """Get TOC data for building the TOC page."""
-        return self.sections
+            # 🆕 TOC kendini eklemesin
+            if style_name == "PageTitle" and text != "Table of Contents":
+                self.notify("TOCEntry", (0, text, self.page))
 
 
 def generate_pdf_report(domain: str, report_data: dict) -> str:
-    """Generate professional multi-page executive PDF report v2.4"""
+    """Generate professional multi-page executive PDF report with TRUE dynamic TOC."""
 
     os.makedirs("reports", exist_ok=True)
     filename = f"reports/{domain}_report.pdf"
 
     exec_summary = generate_executive_summary(report_data)
     prioritized = prioritize_remediation(report_data.get("findings", []))
+    styles = build_styles()
 
-    doc = SimpleDocTemplate(
+    doc = TOCDocTemplate(
         filename,
         pagesize=A4,
         rightMargin=72,
@@ -68,84 +67,63 @@ def generate_pdf_report(domain: str, report_data: dict) -> str:
         bottomMargin=72
     )
 
-    styles = build_styles()
+    toc = TableOfContents()
+    toc.levelStyles = [
+        ParagraphStyle(
+            name="TOCLevel1",
+            fontSize=10,
+            leftIndent=20,
+            firstLineIndent=-20,
+            spaceBefore=5,
+            leading=14,
+            textColor=colors.HexColor("#333333"),
+        )
+    ]
 
-    # TOC tracker
-    toc = DynamicTOC()
-
-    # Build all content first with TOC tracking
-    all_content = []
-
-    # Page 1: COVER PAGE (always page 1)
-    cover_content = build_cover_page(domain, report_data, styles)
-    toc.add_section("Cover", 1)
-    all_content.extend(cover_content)
-    all_content.append(PageBreak())
-
-    # We'll build TOC after we know all page numbers
-    # For now, we build all content except TOC
-    content_blocks = []
-    content_blocks.append(("Cover", cover_content))
-
-    # Page: EXECUTIVE SUMMARY
-    exec_content = build_executive_summary_page(domain, exec_summary, styles)
-    content_blocks.append(("Executive Summary", exec_content))
-
-    # Page: KEY METRICS
-    metrics_content = build_key_metrics_page(exec_summary, report_data, styles)
-    content_blocks.append(("Key Metrics", metrics_content))
-
-    # Page: REMEDIATION ROADMAP
-    remed_content = build_remediation_page(prioritized, styles)
-    content_blocks.append(("Remediation Roadmap", remed_content))
-
-    # Page: TECHNICAL FINDINGS
-    findings_content = build_findings_page(
-        report_data.get("findings", []), styles)
-    content_blocks.append(("Technical Findings", findings_content))
-
-    # Page: CVE INTELLIGENCE
-    cve_content = build_cve_page(report_data, styles)
-    content_blocks.append(("CVE Intelligence", cve_content))
-
-    # Page: ASSET DISCOVERY
-    asset_content = build_asset_discovery_page(report_data, styles)
-    content_blocks.append(("Asset Discovery", asset_content))
-
-    # Page: HISTORICAL TREND
-    trend_content = build_historical_trend_page(report_data, styles)
-    content_blocks.append(("Historical Trend", trend_content))
-
-    # Now build the story with TOC at the beginning
     story = []
 
-    # Calculate page numbers for TOC
-    # We simulate the document to get page numbers
-    # Start from page 1 (Cover)
-    current_page = 1
-
-    # First pass: simulate page counting
-    page_info = []
-    for name, content in content_blocks:
-        # Estimate pages needed (content length / ~40 lines per page)
-        # For simplicity, we use a fixed offset
-        page_info.append((name, current_page))
-        # Each section is 1 page (for now)
-        current_page += 1
-
-    # Build TOC with calculated page numbers
-    toc_content = build_toc_page(page_info, styles)
-    story.extend(toc_content)
+    # TOC Page
+    story.append(Paragraph("Table of Contents", styles["PageTitle"]))
+    story.append(Spacer(1, 20))
+    story.append(toc)
     story.append(PageBreak())
 
-    # Add all content blocks
-    for name, content in content_blocks:
-        story.extend(content)
-        story.append(PageBreak())
+    # Cover Page
+    story.extend(build_cover_page(domain, report_data, styles))
+    story.append(PageBreak())
 
-    # Build with page numbering
-    doc.build(story, onFirstPage=_add_page_number,
-              onLaterPages=_add_page_number)
+    # Executive Summary
+    story.extend(build_executive_summary_page(domain, exec_summary, styles))
+    story.append(PageBreak())
+
+    # Key Metrics
+    story.extend(build_key_metrics_page(exec_summary, report_data, styles))
+    story.append(PageBreak())
+
+    # Remediation Roadmap
+    story.extend(build_remediation_page(prioritized, styles))
+    story.append(PageBreak())
+
+    # Technical Findings
+    story.extend(build_findings_page(report_data.get("findings", []), styles))
+    story.append(PageBreak())
+
+    # CVE Intelligence
+    story.extend(build_cve_page(report_data, styles))
+    story.append(PageBreak())
+
+    # Asset Discovery
+    story.extend(build_asset_discovery_page(report_data, styles))
+    story.append(PageBreak())
+
+    # Historical Trend
+    story.extend(build_historical_trend_page(report_data, styles))
+
+    doc.multiBuild(
+        story,
+        onFirstPage=_add_page_number,
+        onLaterPages=_add_page_number
+    )
 
     return filename
 
@@ -218,19 +196,12 @@ def build_styles():
             textColor=colors.HexColor('#666')
         ),
         ParagraphStyle(
-            name='TOC',
+            name='EmptyState',
             parent=styles['Normal'],
-            fontSize=10,
-            leftIndent=20,
-            spaceAfter=4,
-            textColor=colors.HexColor('#333')
-        ),
-        ParagraphStyle(
-            name='TOC_Dots',
-            parent=styles['Normal'],
-            fontSize=10,
+            fontSize=11,
             alignment=TA_CENTER,
-            textColor=colors.HexColor('#999')
+            textColor=colors.HexColor('#666'),
+            spaceAfter=10
         ),
     ]
 
@@ -250,25 +221,6 @@ def _add_page_number(canvas, doc):
     canvas.drawCentredString(15*cm, 1.5*cm, text)
 
 
-def build_toc_page(toc_data, styles):
-    """Page 2: True Dynamic Table of Contents"""
-    elements = []
-
-    elements.append(Paragraph("Table of Contents", styles['PageTitle']))
-    elements.append(Spacer(1, 30))
-
-    for name, page in toc_data:
-        title = name
-        dots = "." * (50 - len(title))
-        elements.append(Paragraph(f"{title} {dots} {page}", styles['TOC']))
-        elements.append(Spacer(1, 8))
-
-    elements.append(Spacer(1, 30))
-    elements.append(Paragraph(BRANDING['footer_text'], styles['Footer']))
-
-    return elements
-
-
 def add_footer(elements, styles):
     """Add footer to page."""
     elements.append(Spacer(1, 20))
@@ -276,14 +228,18 @@ def add_footer(elements, styles):
 
 
 def build_cover_page(domain, report_data, styles):
-    """Page 1: Cover Page"""
+    """Cover Page"""
     elements = []
+
+    # 🆕 Görünmez bookmark (TOC için)
+    elements.append(Paragraph('<a name="cover"/>', styles["Normal"]))
+    elements.append(Spacer(1, 10))
 
     score_data = report_data.get('attack_surface_score', {})
     score = score_data.get('score', 0)
     rating = score_data.get('rating', 'Unknown')
 
-    elements.append(Spacer(1, 80))
+    elements.append(Spacer(1, 50))
     elements.append(
         Paragraph("ATTACK SURFACE DISCOVERY", styles['ReportTitle']))
     elements.append(Paragraph("ASSESSMENT REPORT", styles['ReportTitle']))
@@ -311,7 +267,7 @@ def build_cover_page(domain, report_data, styles):
 
 
 def build_executive_summary_page(domain, exec_summary, styles):
-    """Executive Summary with Risk Matrix"""
+    """Executive Summary"""
     elements = []
 
     elements.append(Paragraph("Executive Summary", styles['PageTitle']))
@@ -479,7 +435,7 @@ def build_findings_page(findings, styles):
 
 
 def build_cve_page(report_data, styles):
-    """CVE Intelligence"""
+    """CVE Intelligence with empty state"""
     elements = []
 
     elements.append(
@@ -488,10 +444,18 @@ def build_cve_page(report_data, styles):
 
     cve_results = report_data.get('cve_correlation', {})
 
+    # Show detected technologies
+    tech_info = report_data.get('technology_fingerprint', {})
+    server = tech_info.get('server', 'Unknown')
+
+    elements.append(
+        Paragraph(f"<b>Detected Technologies:</b> {server}", styles['Normal']))
+    elements.append(Spacer(1, 10))
+
     if cve_results:
         total_cves = sum(len(cves) for cves in cve_results.values())
         elements.append(Paragraph(
-            f"Detected {total_cves} CVEs across {len(cve_results)} technologies", styles['Normal']))
+            f"Found {total_cves} CVEs across {len(cve_results)} technologies", styles['Normal']))
         elements.append(Spacer(1, 10))
 
         cve_data = [
@@ -500,7 +464,7 @@ def build_cve_page(report_data, styles):
 
         for tech, cves in cve_results.items():
             for cve in cves[:3]:
-                desc = cve.get('description', '')[:60] + "..."
+                desc = cve.get('description', '')[:40] + "..."
                 cve_data.append([
                     tech.upper()[:6],
                     cve.get('cve_id', ''),
@@ -529,7 +493,17 @@ def build_cve_page(report_data, styles):
         ]))
         elements.append(cve_table)
     else:
-        elements.append(Paragraph("No CVEs detected.", styles['Normal']))
+        # Empty state
+        elements.append(Paragraph(
+            "No mapped CVEs found for detected technologies.",
+            styles['EmptyState']
+        ))
+        elements.append(Spacer(1, 5))
+        elements.append(Paragraph(
+            "This may indicate that the technologies in use are not associated with known vulnerabilities, "
+            "or that the assessment did not detect version-specific details.",
+            styles['Normal']
+        ))
 
     add_footer(elements, styles)
     return elements
@@ -550,7 +524,7 @@ def build_asset_discovery_page(report_data, styles):
         ))
 
         elements.append(Paragraph(
-            f"Discovered Subdomains ({len(unique_subdomains)})", styles['SectionTitle']))
+            f"Discovered Unique Assets ({len(unique_subdomains)})", styles['SectionTitle']))
         elements.append(
             Paragraph(", ".join(unique_subdomains[:15]), styles['Normal']))
         if len(unique_subdomains) > 15:
@@ -584,6 +558,7 @@ def build_historical_trend_page(report_data, styles):
     elements.append(Spacer(1, 15))
 
     history = report_data.get('history', [])
+
     if history and len(history) >= 2:
         current = history[0]
         previous = history[1]
@@ -675,6 +650,8 @@ def build_historical_trend_page(report_data, styles):
             Paragraph("No historical scan data available.", styles['Normal']))
 
     elements.append(Spacer(1, 15))
+
+    # Disclaimer
     elements.append(Paragraph("Disclaimer", styles['SectionTitle']))
     elements.append(Paragraph(
         "This report reflects the attack surface at the time of assessment. "

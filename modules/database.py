@@ -1,12 +1,15 @@
+# modules/database.py
 import sqlite3
-import json
 from datetime import datetime
+import json
+from typing import Optional, List, Dict, Any, Tuple
 
 
 DB_FILE = "attack_surface.db"
 
 
-def initialize_database():
+def initialize_database() -> None:
+    """Veritabanı tablosunu oluştur."""
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
 
@@ -16,46 +19,49 @@ def initialize_database():
             domain TEXT NOT NULL,
             score INTEGER NOT NULL,
             rating TEXT NOT NULL,
-            scan_date TEXT NOT NULL,
-            findings_json TEXT DEFAULT '[]'
+            findings TEXT,  -- JSON olarak findings
+            scan_date TEXT NOT NULL
         )
     """)
 
-    cursor.execute("PRAGMA table_info(scans)")
-    columns = [column[1] for column in cursor.fetchall()]
-
-    if "findings_json" not in columns:
-        cursor.execute("""
-            ALTER TABLE scans
-            ADD COLUMN findings_json TEXT DEFAULT '[]'
-        """)
+    # Eski tabloyu güncelle (eğer findings sütunu yoksa)
+    try:
+        cursor.execute("ALTER TABLE scans ADD COLUMN findings TEXT")
+    except sqlite3.OperationalError:
+        pass  # Sütun zaten var
 
     connection.commit()
     connection.close()
 
 
-def save_scan_result(domain: str, score: int, rating: str, findings: list | None = None):
+def save_scan_result(
+    domain: str,
+    score: int,
+    rating: str,
+    findings: List[Dict[str, Any]]
+) -> None:
+    """Tarama sonucunu veritabanına kaydet."""
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
 
-    findings_json = json.dumps(findings or [])
-
     cursor.execute("""
-        INSERT INTO scans (domain, score, rating, scan_date, findings_json)
+        INSERT INTO scans (domain, score, rating, findings, scan_date)
         VALUES (?, ?, ?, ?, ?)
     """, (
         domain,
         score,
         rating,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        findings_json
+        # findings'i JSON string olarak kaydet
+        json.dumps(findings, ensure_ascii=False),
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     ))
 
     connection.commit()
     connection.close()
 
 
-def get_scan_history(domain: str):
+def get_scan_history(domain: str) -> List[Tuple[str, int, str]]:
+    """Domain'in tüm tarama geçmişini getir."""
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
 
@@ -67,18 +73,20 @@ def get_scan_history(domain: str):
     """, (domain,))
 
     results = cursor.fetchall()
-
     connection.close()
 
     return results
 
 
-def get_previous_scan(domain: str):
+def get_previous_scan(
+    domain: str
+) -> Optional[Tuple[str, int, str, List[Dict[str, Any]]]]:
+    """Domain'in bir önceki tarama sonucunu getir."""
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
 
     cursor.execute("""
-        SELECT scan_date, score, rating, findings_json
+        SELECT scan_date, score, rating, findings
         FROM scans
         WHERE domain = ?
         ORDER BY scan_date DESC
@@ -86,26 +94,14 @@ def get_previous_scan(domain: str):
     """, (domain,))
 
     result = cursor.fetchone()
-
     connection.close()
 
-    return result
+    if result:
+        # findings JSON string'ini parse et
+        try:
+            findings = json.loads(result[3]) if result[3] else []
+        except json.JSONDecodeError:
+            findings = []
+        return (result[0], result[1], result[2], findings)
 
-
-def get_latest_scan(domain: str):
-    connection = sqlite3.connect(DB_FILE)
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT scan_date, score, rating, findings_json
-        FROM scans
-        WHERE domain = ?
-        ORDER BY scan_date DESC
-        LIMIT 1
-    """, (domain,))
-
-    result = cursor.fetchone()
-
-    connection.close()
-
-    return result
+    return None
