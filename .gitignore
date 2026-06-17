@@ -5,3 +5,8 @@ reports/
 attack_surface.db
 .DS_Store
 .env
+
+# Generated reports
+reports/*.pdf
+!reports/sample-tesla-assessment-report.pdf
+
