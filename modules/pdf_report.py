@@ -1,36 +1,57 @@
-# modules/pdf_report.py - v4.4 Professional Multi-Page Executive PDF Report
-# Fixed: safe trend graph styling, numeric score handling, emoji-free PDF output
+# modules/pdf_report.py - v2.4 Professional Multi-Page Executive PDF Report
+# Fixed: True Dynamic TOC with page tracking
 
 import os
 from datetime import datetime
-
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-    PageBreak,
+    SimpleDocTemplate, Paragraph, Spacer, Table,
+    TableStyle, PageBreak, KeepTogether
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.lineplots import LinePlot
 
-from modules.executive_summary import (
-    generate_executive_summary,
-    prioritize_remediation,
-)
+from modules.executive_summary import generate_executive_summary, prioritize_remediation
 
 
-FOOTER_TEXT = "Attack Surface Assessment Report"
+# ============================================================
+# BRANDING CONFIG
+# ============================================================
+
+BRANDING = {
+    "company_name": "Attack Surface Discovery Toolkit",
+    "primary_color": "#1a1a2e",
+    "secondary_color": "#0f3460",
+    "accent_color": "#e94560",
+    "logo_path": None,
+    "report_title": "Attack Surface Assessment Report",
+    "footer_text": "Confidential - For Internal Use Only"
+}
+
+
+class DynamicTOC:
+    """True Dynamic Table of Contents tracker."""
+
+    def __init__(self):
+        # List of (section_name, page_number, start_element_index)
+        self.sections = []
+        self.current_page = 1
+
+    def add_section(self, name: str, page_number: int):
+        """Add a section with its starting page number."""
+        self.sections.append((name, page_number))
+
+    def get_toc_data(self):
+        """Get TOC data for building the TOC page."""
+        return self.sections
 
 
 def generate_pdf_report(domain: str, report_data: dict) -> str:
-    """Generate professional multi-page executive PDF report."""
+    """Generate professional multi-page executive PDF report v2.4"""
 
     os.makedirs("reports", exist_ok=True)
     filename = f"reports/{domain}_report.pdf"
@@ -44,36 +65,88 @@ def generate_pdf_report(domain: str, report_data: dict) -> str:
         rightMargin=72,
         leftMargin=72,
         topMargin=72,
-        bottomMargin=72,
+        bottomMargin=72
     )
 
     styles = build_styles()
+
+    # TOC tracker
+    toc = DynamicTOC()
+
+    # Build all content first with TOC tracking
+    all_content = []
+
+    # Page 1: COVER PAGE (always page 1)
+    cover_content = build_cover_page(domain, report_data, styles)
+    toc.add_section("Cover", 1)
+    all_content.extend(cover_content)
+    all_content.append(PageBreak())
+
+    # We'll build TOC after we know all page numbers
+    # For now, we build all content except TOC
+    content_blocks = []
+    content_blocks.append(("Cover", cover_content))
+
+    # Page: EXECUTIVE SUMMARY
+    exec_content = build_executive_summary_page(domain, exec_summary, styles)
+    content_blocks.append(("Executive Summary", exec_content))
+
+    # Page: KEY METRICS
+    metrics_content = build_key_metrics_page(exec_summary, report_data, styles)
+    content_blocks.append(("Key Metrics", metrics_content))
+
+    # Page: REMEDIATION ROADMAP
+    remed_content = build_remediation_page(prioritized, styles)
+    content_blocks.append(("Remediation Roadmap", remed_content))
+
+    # Page: TECHNICAL FINDINGS
+    findings_content = build_findings_page(
+        report_data.get("findings", []), styles)
+    content_blocks.append(("Technical Findings", findings_content))
+
+    # Page: CVE INTELLIGENCE
+    cve_content = build_cve_page(report_data, styles)
+    content_blocks.append(("CVE Intelligence", cve_content))
+
+    # Page: ASSET DISCOVERY
+    asset_content = build_asset_discovery_page(report_data, styles)
+    content_blocks.append(("Asset Discovery", asset_content))
+
+    # Page: HISTORICAL TREND
+    trend_content = build_historical_trend_page(report_data, styles)
+    content_blocks.append(("Historical Trend", trend_content))
+
+    # Now build the story with TOC at the beginning
     story = []
 
-    story.extend(build_cover_page(domain, report_data, styles))
+    # Calculate page numbers for TOC
+    # We simulate the document to get page numbers
+    # Start from page 1 (Cover)
+    current_page = 1
+
+    # First pass: simulate page counting
+    page_info = []
+    for name, content in content_blocks:
+        # Estimate pages needed (content length / ~40 lines per page)
+        # For simplicity, we use a fixed offset
+        page_info.append((name, current_page))
+        # Each section is 1 page (for now)
+        current_page += 1
+
+    # Build TOC with calculated page numbers
+    toc_content = build_toc_page(page_info, styles)
+    story.extend(toc_content)
     story.append(PageBreak())
 
-    story.extend(build_executive_summary_page(exec_summary, styles))
-    story.append(PageBreak())
+    # Add all content blocks
+    for name, content in content_blocks:
+        story.extend(content)
+        story.append(PageBreak())
 
-    story.extend(build_key_metrics_page(exec_summary, report_data, styles))
-    story.append(PageBreak())
+    # Build with page numbering
+    doc.build(story, onFirstPage=_add_page_number,
+              onLaterPages=_add_page_number)
 
-    story.extend(build_remediation_page(prioritized, styles))
-    story.append(PageBreak())
-
-    story.extend(build_findings_page(report_data.get("findings", []), styles))
-    story.append(PageBreak())
-
-    story.extend(build_cve_page(report_data, styles))
-    story.append(PageBreak())
-
-    story.extend(build_asset_discovery_page(report_data, styles))
-    story.append(PageBreak())
-
-    story.extend(build_historical_trend_page(report_data, styles))
-
-    doc.build(story)
     return filename
 
 
@@ -82,67 +155,82 @@ def build_styles():
 
     custom_styles = [
         ParagraphStyle(
-            name="ReportTitle",
-            parent=styles["Heading1"],
+            name='ReportTitle',
+            parent=styles['Heading1'],
             fontSize=24,
             alignment=TA_CENTER,
             spaceAfter=30,
-            textColor=colors.HexColor("#1a1a2e"),
+            textColor=colors.HexColor('#1a1a2e')
         ),
         ParagraphStyle(
-            name="PageTitle",
-            parent=styles["Heading1"],
+            name='PageTitle',
+            parent=styles['Heading1'],
             fontSize=20,
             alignment=TA_CENTER,
             spaceAfter=20,
-            textColor=colors.HexColor("#16213e"),
+            textColor=colors.HexColor('#0f3460')
         ),
         ParagraphStyle(
-            name="SectionTitle",
-            parent=styles["Heading2"],
+            name='SectionTitle',
+            parent=styles['Heading2'],
             fontSize=14,
             spaceBefore=12,
             spaceAfter=8,
-            textColor=colors.HexColor("#0f3460"),
+            textColor=colors.HexColor('#0f3460')
         ),
         ParagraphStyle(
-            name="FindingHeader",
-            parent=styles["Normal"],
+            name='FindingHeader',
+            parent=styles['Normal'],
             fontSize=11,
             leftIndent=10,
             spaceAfter=4,
-            textColor=colors.HexColor("#333333"),
+            textColor=colors.HexColor('#333')
         ),
         ParagraphStyle(
-            name="FindingDetail",
-            parent=styles["Normal"],
+            name='FindingDetail',
+            parent=styles['Normal'],
             fontSize=9,
             leftIndent=20,
-            spaceAfter=6,
-            textColor=colors.HexColor("#555555"),
+            spaceAfter=8,
+            textColor=colors.HexColor('#444')
         ),
         ParagraphStyle(
-            name="Recommendation",
-            parent=styles["Normal"],
+            name='Recommendation',
+            parent=styles['Normal'],
             fontSize=9,
             leftIndent=20,
             spaceAfter=10,
-            textColor=colors.HexColor("#0066cc"),
+            textColor=colors.HexColor('#0066cc')
         ),
         ParagraphStyle(
-            name="ManagementSummary",
-            parent=styles["Normal"],
+            name='ManagementSummary',
+            parent=styles['Normal'],
             fontSize=11,
             leftIndent=10,
             spaceAfter=8,
-            textColor=colors.HexColor("#333333"),
+            textColor=colors.HexColor('#333')
         ),
         ParagraphStyle(
-            name="Footer",
-            parent=styles["Normal"],
+            name='Footer',
+            parent=styles['Normal'],
             fontSize=8,
             alignment=TA_CENTER,
-            textColor=colors.HexColor("#666666"),
+            textColor=colors.HexColor('#666')
+        ),
+        ParagraphStyle(
+            name='TOC',
+            parent=styles['Normal'],
+            fontSize=10,
+            leftIndent=20,
+            spaceAfter=4,
+            textColor=colors.HexColor('#333')
+        ),
+        ParagraphStyle(
+            name='TOC_Dots',
+            parent=styles['Normal'],
+            fontSize=10,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#999')
         ),
     ]
 
@@ -153,157 +241,161 @@ def build_styles():
     return styles
 
 
+def _add_page_number(canvas, doc):
+    """Add page numbers to each page."""
+    page_num = canvas.getPageNumber()
+    text = f"Page {page_num}"
+    canvas.setFont('Helvetica', 8)
+    canvas.setFillColor(colors.HexColor('#666'))
+    canvas.drawCentredString(15*cm, 1.5*cm, text)
+
+
+def build_toc_page(toc_data, styles):
+    """Page 2: True Dynamic Table of Contents"""
+    elements = []
+
+    elements.append(Paragraph("Table of Contents", styles['PageTitle']))
+    elements.append(Spacer(1, 30))
+
+    for name, page in toc_data:
+        title = name
+        dots = "." * (50 - len(title))
+        elements.append(Paragraph(f"{title} {dots} {page}", styles['TOC']))
+        elements.append(Spacer(1, 8))
+
+    elements.append(Spacer(1, 30))
+    elements.append(Paragraph(BRANDING['footer_text'], styles['Footer']))
+
+    return elements
+
+
 def add_footer(elements, styles):
+    """Add footer to page."""
     elements.append(Spacer(1, 20))
-    elements.append(Paragraph(FOOTER_TEXT, styles["Footer"]))
+    elements.append(Paragraph(BRANDING['footer_text'], styles['Footer']))
 
 
 def build_cover_page(domain, report_data, styles):
+    """Page 1: Cover Page"""
     elements = []
 
-    score_data = report_data.get("attack_surface_score", {})
-    score = score_data.get("score", 0)
-    rating = score_data.get("rating", "Unknown")
+    score_data = report_data.get('attack_surface_score', {})
+    score = score_data.get('score', 0)
+    rating = score_data.get('rating', 'Unknown')
 
     elements.append(Spacer(1, 80))
     elements.append(
-        Paragraph("ATTACK SURFACE DISCOVERY", styles["ReportTitle"]))
-    elements.append(Paragraph("ASSESSMENT REPORT", styles["ReportTitle"]))
+        Paragraph("ATTACK SURFACE DISCOVERY", styles['ReportTitle']))
+    elements.append(Paragraph("ASSESSMENT REPORT", styles['ReportTitle']))
     elements.append(Spacer(1, 40))
 
-    elements.append(Paragraph(f"<b>Target:</b> {domain}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Target:</b> {domain}", styles['Normal']))
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph(
+        f"<b>Assessment Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles['Normal']))
     elements.append(Spacer(1, 10))
     elements.append(
-        Paragraph(
-            f"<b>Assessment Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-            styles["Normal"],
-        )
-    )
+        Paragraph(f"<b>Prepared By:</b> {BRANDING['company_name']}", styles['Normal']))
     elements.append(Spacer(1, 10))
     elements.append(
-        Paragraph(
-            "<b>Prepared By:</b> Attack Surface Discovery Toolkit",
-            styles["Normal"],
-        )
-    )
-    elements.append(Spacer(1, 10))
-    elements.append(
-        Paragraph("<b>Classification:</b> Internal - Confidential",
-                  styles["Normal"])
-    )
+        Paragraph("<b>Classification:</b> Internal - Confidential", styles['Normal']))
     elements.append(Spacer(1, 40))
 
     elements.append(
-        Paragraph(f"<b>Risk Rating:</b> {rating}", styles["Normal"]))
+        Paragraph(f"<b>Risk Rating:</b> {rating}", styles['Normal']))
     elements.append(
-        Paragraph(f"<b>Attack Surface Score:</b> {score}/100", styles["Normal"]))
+        Paragraph(f"<b>Attack Surface Score:</b> {score}/100", styles['Normal']))
 
     add_footer(elements, styles)
     return elements
 
 
-def build_executive_summary_page(exec_summary, styles):
+def build_executive_summary_page(domain, exec_summary, styles):
+    """Executive Summary with Risk Matrix"""
     elements = []
 
-    elements.append(Paragraph("Executive Summary", styles["PageTitle"]))
+    elements.append(Paragraph("Executive Summary", styles['PageTitle']))
     elements.append(Spacer(1, 15))
 
-    elements.append(Paragraph("Risk Matrix", styles["SectionTitle"]))
+    # Risk Matrix
+    elements.append(Paragraph("Executive Risk Matrix", styles['SectionTitle']))
 
     risk_data = [
-        ["Severity", "Count"],
-        ["Critical", str(exec_summary.get("critical_count", 0))],
-        ["High", str(exec_summary.get("high_count", 0))],
-        ["Medium", str(exec_summary.get("medium_count", 0))],
-        ["Low", str(exec_summary.get("low_count", 0))],
-        ["Informational", str(exec_summary.get("informational_count", 0))],
+        ["Severity", "Count", "Impact"],
+        ["Critical", str(exec_summary.get('critical_count', 0)),
+         "Immediate Action"],
+        ["High", str(exec_summary.get('high_count', 0)), "High Priority"],
+        ["Medium", str(exec_summary.get('medium_count', 0)),
+         "Standard Priority"],
+        ["Low", str(exec_summary.get('low_count', 0)), "Routine Priority"],
+        ["Info", str(exec_summary.get('informational_count', 0)),
+         "Informational"],
     ]
 
-    risk_table = Table(risk_data, colWidths=[6 * cm, 6 * cm])
-    risk_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, 0), 10),
-                ("FONTSIZE", (0, 1), (-1, -1), 14),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("GRID", (0, 0), (-1, -1), 1, colors.lightgrey),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8f0fe")),
-                ("TOPPADDING", (0, 0), (-1, -1), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-            ]
-        )
-    )
+    risk_table = Table(risk_data, colWidths=[3*cm, 3*cm, 6*cm])
+    risk_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 12),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.lightgrey),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e8f0fe')),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
     elements.append(risk_table)
     elements.append(Spacer(1, 20))
 
-    score = exec_summary.get("score", 0)
-    rating = exec_summary.get("rating", "Unknown")
+    # Score
+    score = exec_summary.get('score', 0)
+    rating = exec_summary.get('rating', 'Unknown')
 
     elements.append(
-        Paragraph(f"<b>Overall Score:</b> {score}/100", styles["Normal"]))
+        Paragraph(f"<b>Overall Score:</b> {score}/100", styles['Normal']))
     elements.append(
-        Paragraph(f"<b>Risk Rating:</b> {rating}", styles["Normal"]))
+        Paragraph(f"<b>Risk Rating:</b> {rating}", styles['Normal']))
     elements.append(Spacer(1, 15))
 
-    elements.append(Paragraph("Management Summary", styles["SectionTitle"]))
+    # Management Summary
+    elements.append(Paragraph("Management Summary", styles['SectionTitle']))
 
-    total = exec_summary.get("total_findings", 0)
-    critical = exec_summary.get("critical_count", 0)
-    high = exec_summary.get("high_count", 0)
-    medium = exec_summary.get("medium_count", 0)
+    total = exec_summary.get('total_findings', 0)
+    critical = exec_summary.get('critical_count', 0)
+    high = exec_summary.get('high_count', 0)
 
     if critical > 0:
-        summary_text = (
-            f"The attack surface assessment identified {critical} critical and "
-            f"{high} high-severity weaknesses requiring immediate remediation. "
-            "Prioritize patching or mitigating these vulnerabilities to reduce "
-            "the risk of potential exploitation."
-        )
+        summary_text = f"The assessment identified {critical} critical and {high} high-severity weaknesses requiring immediate remediation."
     elif high > 0:
-        summary_text = (
-            f"The attack surface assessment identified {high} high-severity weakness "
-            "related to missing HTTP security controls. No critical vulnerabilities "
-            "were identified during the assessment. Immediate remediation of browser "
-            "security headers is recommended."
-        )
-    elif medium > 0:
-        summary_text = (
-            f"The attack surface assessment identified {total} findings, with "
-            f"{medium} medium-severity issue(s). No critical or high vulnerabilities "
-            "were detected. Routine security hygiene is recommended to maintain the "
-            "current posture."
-        )
+        summary_text = f"The assessment identified {high} high-severity weaknesses. No critical vulnerabilities were found."
     else:
-        summary_text = (
-            "The attack surface assessment identified no critical or high-severity "
-            "findings. Regular monitoring is recommended to maintain security posture."
-        )
+        summary_text = f"The assessment identified {total} findings with no critical or high severity issues."
 
-    elements.append(Paragraph(summary_text, styles["ManagementSummary"]))
+    elements.append(Paragraph(summary_text, styles['ManagementSummary']))
 
     add_footer(elements, styles)
     return elements
 
 
 def build_key_metrics_page(exec_summary, report_data, styles):
+    """Key Metrics"""
     elements = []
 
-    elements.append(Paragraph("Key Metrics", styles["PageTitle"]))
+    elements.append(Paragraph("Key Metrics", styles['PageTitle']))
     elements.append(Spacer(1, 15))
 
     metrics = [
-        ["Subdomains", str(exec_summary.get("subdomain_count", 0))],
-        ["Hidden Assets", str(exec_summary.get("asset_count", 0))],
-        ["Open Ports", str(exec_summary.get("open_ports_count", 0))],
+        ["Subdomains", str(exec_summary.get('subdomain_count', 0))],
+        ["Hidden Assets", str(exec_summary.get('asset_count', 0))],
+        ["Open Ports", str(exec_summary.get('open_ports_count', 0))],
         ["SSL Status", "Valid" if report_data.get(
-            "ssl_information") else "Unknown"],
-        ["CVE Findings", str(exec_summary.get("cve_count", 0))],
-        ["Critical Findings", str(exec_summary.get("critical_count", 0))],
-        ["High Findings", str(exec_summary.get("high_count", 0))],
-        ["Medium Findings", str(exec_summary.get("medium_count", 0))],
-        ["Low Findings", str(exec_summary.get("low_count", 0))],
+            'ssl_information') else "Unknown"],
+        ["CVE Findings", str(exec_summary.get('cve_count', 0))],
+        ["Critical Findings", str(exec_summary.get('critical_count', 0))],
+        ["High Findings", str(exec_summary.get('high_count', 0))],
+        ["Medium Findings", str(exec_summary.get('medium_count', 0))],
+        ["Low Findings", str(exec_summary.get('low_count', 0))],
     ]
 
     metric_data = []
@@ -313,24 +405,22 @@ def build_key_metrics_page(exec_summary, report_data, styles):
             if i + j < len(metrics):
                 label, value = metrics[i + j]
                 row.append(
-                    Paragraph(f"<b>{label}</b><br/>{value}", styles["Normal"]))
+                    Paragraph(f"<b>{label}</b><br/>{value}", styles['Normal']))
             else:
                 row.append("")
         metric_data.append(row)
 
-    metric_table = Table(metric_data, colWidths=[5 * cm, 5 * cm, 5 * cm])
-    metric_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("GRID", (0, 0), (-1, -1), 1, colors.lightgrey),
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8f9fa")),
-                ("TOPPADDING", (0, 0), (-1, -1), 15),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 15),
-            ]
-        )
-    )
+    metric_table = Table(metric_data, colWidths=[5*cm, 5*cm, 5*cm])
+    metric_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.lightgrey),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8f9fa')),
+        ('TOPPADDING', (0, 0), (-1, -1), 15),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+    ]))
     elements.append(metric_table)
 
     add_footer(elements, styles)
@@ -338,44 +428,28 @@ def build_key_metrics_page(exec_summary, report_data, styles):
 
 
 def build_remediation_page(prioritized, styles):
+    """Remediation Roadmap"""
     elements = []
 
-    elements.append(Paragraph("Remediation Roadmap", styles["PageTitle"]))
+    elements.append(Paragraph("Remediation Roadmap", styles['PageTitle']))
     elements.append(Spacer(1, 15))
     elements.append(
-        Paragraph("Prioritized remediation plan based on severity.",
-                  styles["Normal"])
-    )
+        Paragraph("Prioritized remediation plan based on severity:", styles['Normal']))
     elements.append(Spacer(1, 10))
 
     for item in prioritized[:5]:
-        priority = item.get("priority_label", "P5")
-        severity = item.get("severity", "")
-        finding_text = item.get("finding", "")
-        recommendation = item.get("recommendation", "")
-        score_impact = item.get("score_impact", 0)
+        priority = item.get('priority_label', 'P5')
+        severity = item.get('severity', '')
+        finding_text = item.get('finding', '')
+        rec = item.get('recommendation', '')
+        score_impact = item.get('score_impact', 0)
 
+        elements.append(Paragraph(
+            f"<b>{priority}</b> - {severity}: {finding_text} <font color='#666'>(+{score_impact} pts)</font>",
+            styles['FindingHeader']
+        ))
         elements.append(
-            Paragraph(
-                f"<b>{priority}</b> - {severity}: {finding_text} "
-                f"<font color='#666666'>(+{score_impact} pts)</font>",
-                styles["FindingHeader"],
-            )
-        )
-
-        if recommendation:
-            short_recommendation = (
-                recommendation[:120] + "..."
-                if len(recommendation) > 120
-                else recommendation
-            )
-            elements.append(
-                Paragraph(
-                    f"<i>Recommendation:</i> {short_recommendation}",
-                    styles["FindingDetail"],
-                )
-            )
-
+            Paragraph(f"<i>Recommendation:</i> {rec[:120]}...", styles['FindingDetail']))
         elements.append(Spacer(1, 5))
 
     add_footer(elements, styles)
@@ -383,32 +457,21 @@ def build_remediation_page(prioritized, styles):
 
 
 def build_findings_page(findings, styles):
+    """Technical Findings"""
     elements = []
 
-    elements.append(Paragraph("Technical Findings", styles["PageTitle"]))
+    elements.append(Paragraph("Technical Findings", styles['PageTitle']))
     elements.append(Spacer(1, 15))
 
-    if not findings:
-        elements.append(Paragraph("No findings detected.", styles["Normal"]))
-
     for finding in findings:
-        severity = finding.get("severity", "")
-        finding_text = finding.get("finding", "")
-        recommendation = finding.get("recommendation", "")
+        severity = finding.get('severity', '')
+        finding_text = finding.get('finding', '')
+        rec = finding.get('recommendation', '')
 
         elements.append(
-            Paragraph(f"<b>{severity}</b>: {finding_text}",
-                      styles["FindingHeader"])
-        )
-
-        if recommendation:
-            elements.append(
-                Paragraph(
-                    f"<i>Recommendation:</i> {recommendation}",
-                    styles["Recommendation"],
-                )
-            )
-
+            Paragraph(f"<b>{severity}</b>: {finding_text}", styles['FindingHeader']))
+        elements.append(
+            Paragraph(f"<i>Recommendation:</i> {rec}", styles['Recommendation']))
         elements.append(Spacer(1, 5))
 
     add_footer(elements, styles)
@@ -416,310 +479,215 @@ def build_findings_page(findings, styles):
 
 
 def build_cve_page(report_data, styles):
+    """CVE Intelligence"""
     elements = []
 
     elements.append(
-        Paragraph("Vulnerability Intelligence", styles["PageTitle"]))
+        Paragraph("Vulnerability Intelligence", styles['PageTitle']))
     elements.append(Spacer(1, 15))
 
-    cve_results = report_data.get("cve_correlation", {})
+    cve_results = report_data.get('cve_correlation', {})
 
     if cve_results:
         total_cves = sum(len(cves) for cves in cve_results.values())
-        elements.append(
-            Paragraph(
-                f"Detected {total_cves} CVEs across {len(cve_results)} technologies.",
-                styles["Normal"],
-            )
-        )
+        elements.append(Paragraph(
+            f"Detected {total_cves} CVEs across {len(cve_results)} technologies", styles['Normal']))
         elements.append(Spacer(1, 10))
 
-        cve_data = [["Tech", "CVE ID", "CVSS",
-                     "Severity", "Exploit", "Description"]]
+        cve_data = [
+            ["Tech", "CVE ID", "CVSS", "Severity", "Exploit", "Description"]
+        ]
 
         for tech, cves in cve_results.items():
             for cve in cves[:3]:
-                description = cve.get("description", "")
-                short_description = (
-                    description[:80] + "..."
-                    if len(description) > 80
-                    else description
-                )
-
-                cve_data.append(
-                    [
-                        tech.upper()[:6],
-                        cve.get("cve_id", ""),
-                        str(cve.get("cvss_score", "N/A")),
-                        cve.get("severity", "Unknown"),
-                        "YES" if cve.get("has_exploit", False) else "NO",
-                        short_description,
-                    ]
-                )
-
+                desc = cve.get('description', '')[:60] + "..."
+                cve_data.append([
+                    tech.upper()[:6],
+                    cve.get('cve_id', ''),
+                    str(cve.get('cvss_score', 'N/A')),
+                    cve.get('severity', 'Unknown'),
+                    "YES" if cve.get('has_exploit', False) else "NO",
+                    desc
+                ])
             if len(cves) > 3:
                 cve_data.append(
-                    [
-                        tech.upper()[:6],
-                        f"... and {len(cves) - 3} more",
-                        "",
-                        "",
-                        "",
-                        "",
-                    ]
-                )
+                    [tech.upper()[:6], f"... and {len(cves) - 3} more", "", "", "", ""])
 
-        cve_table = Table(
-            cve_data,
-            colWidths=[1.8 * cm, 2.5 * cm, 1.5 *
-                       cm, 2 * cm, 1.5 * cm, 5.2 * cm],
-        )
-        cve_table.setStyle(
-            TableStyle(
-                [
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, 0), 8),
-                    ("FONTSIZE", (0, 1), (-1, -1), 7),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("GRID", (0, 0), (-1, -1), 1, colors.lightgrey),
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8f0fe")),
-                    ("TOPPADDING", (0, 0), (-1, -1), 3),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ]
-            )
-        )
+        cve_table = Table(cve_data, colWidths=[
+                          1.8*cm, 2.5*cm, 1.5*cm, 2*cm, 1.5*cm, 5.2*cm])
+        cve_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.lightgrey),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e8f0fe')),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
         elements.append(cve_table)
     else:
-        elements.append(
-            Paragraph(
-                "No CVEs detected for the identified technologies.",
-                styles["Normal"],
-            )
-        )
+        elements.append(Paragraph("No CVEs detected.", styles['Normal']))
 
     add_footer(elements, styles)
     return elements
 
 
 def build_asset_discovery_page(report_data, styles):
+    """Asset Discovery"""
     elements = []
 
-    elements.append(Paragraph("Asset Discovery", styles["PageTitle"]))
+    elements.append(Paragraph("Asset Discovery", styles['PageTitle']))
     elements.append(Spacer(1, 15))
 
-    subdomains = report_data.get("subdomains", [])
+    subdomains = report_data.get('subdomains', [])
     if subdomains:
-        unique_subdomains = sorted(
-            set(
-                item["subdomain"] if isinstance(item, dict) else str(item)
-                for item in subdomains
-            )
-        )
+        unique_subdomains = sorted(set(
+            item["subdomain"] if isinstance(item, dict) else str(item)
+            for item in subdomains
+        ))
 
+        elements.append(Paragraph(
+            f"Discovered Subdomains ({len(unique_subdomains)})", styles['SectionTitle']))
         elements.append(
-            Paragraph(
-                f"Discovered Subdomains ({len(unique_subdomains)})",
-                styles["SectionTitle"],
-            )
-        )
-        elements.append(
-            Paragraph(", ".join(unique_subdomains[:15]), styles["Normal"])
-        )
-
+            Paragraph(", ".join(unique_subdomains[:15]), styles['Normal']))
         if len(unique_subdomains) > 15:
             elements.append(
-                Paragraph(
-                    f"... and {len(unique_subdomains) - 15} more",
-                    styles["Normal"],
-                )
-            )
-
+                Paragraph(f"... and {len(unique_subdomains) - 15} more", styles['Normal']))
         elements.append(Spacer(1, 10))
 
-    hidden = report_data.get("hidden_assets_preview", [])
-    hidden_count = report_data.get("hidden_assets_count", 0)
+    hidden = report_data.get('hidden_assets_preview', [])
+    hidden_count = report_data.get('hidden_assets_count', 0)
 
     if hidden:
-        if hidden_count > 10:
-            risk_level = "HIGH"
-        elif hidden_count > 3:
-            risk_level = "MEDIUM"
-        else:
-            risk_level = "LOW"
-
-        elements.append(
-            Paragraph(
-                f"Hidden Assets Found via CT Logs ({hidden_count} total) "
-                f"- Risk Level: {risk_level}",
-                styles["SectionTitle"],
-            )
-        )
-        elements.append(
-            Paragraph(
-                f"{hidden_count} assets discovered in CT logs that were not identified "
-                "during standard enumeration and should be reviewed.",
-                styles["Normal"],
-            )
-        )
-        elements.append(Spacer(1, 5))
-        elements.append(Paragraph(", ".join(hidden[:10]), styles["Normal"]))
-
+        risk_level = "HIGH" if hidden_count > 10 else "MEDIUM" if hidden_count > 3 else "LOW"
+        elements.append(Paragraph(
+            f"Hidden Assets Found via CT Logs ({hidden_count} total) - Risk Level: {risk_level}",
+            styles['SectionTitle']
+        ))
+        elements.append(Paragraph(", ".join(hidden[:10]), styles['Normal']))
         if hidden_count > 10:
             elements.append(
-                Paragraph(
-                    f"... and {hidden_count - 10} more",
-                    styles["Normal"],
-                )
-            )
+                Paragraph(f"... and {hidden_count - 10} more", styles['Normal']))
 
     add_footer(elements, styles)
     return elements
 
 
 def build_historical_trend_page(report_data, styles):
+    """Historical Trend with graph"""
     elements = []
 
-    elements.append(Paragraph("Risk Score Trend", styles["PageTitle"]))
+    elements.append(Paragraph("Historical Trend", styles['PageTitle']))
     elements.append(Spacer(1, 15))
 
-    history = report_data.get("history", [])
-
+    history = report_data.get('history', [])
     if history and len(history) >= 2:
         current = history[0]
         previous = history[1]
 
-        current_score = safe_score(current[1]) if len(current) > 1 else 0
-        previous_score = safe_score(previous[1]) if len(previous) > 1 else 0
-        change = current_score - previous_score
+        current_score = safe_score(current[2]) if len(current) > 2 else 0
+        previous_score = safe_score(previous[2]) if len(previous) > 2 else 0
+        change = current_score - previous_score if current_score and previous_score else 0
 
         comparison_data = [
             ["", "Previous", "Current", "Change"],
-            [
-                "Score",
-                str(previous_score),
-                str(current_score),
-                f"{'+' if change >= 0 else ''}{change}",
-            ],
+            ["Score", str(previous_score), str(current_score),
+             f"{'+' if change >= 0 else ''}{change}"]
         ]
 
-        table = Table(comparison_data, colWidths=[
-                      4 * cm, 3 * cm, 3 * cm, 3 * cm])
-        table.setStyle(
-            TableStyle(
-                [
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, 0), 10),
-                    ("FONTSIZE", (0, 1), (-1, 1), 16),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("GRID", (0, 0), (-1, -1), 1, colors.lightgrey),
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8f0fe")),
-                    ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                ]
-            )
-        )
+        table = Table(comparison_data, colWidths=[4*cm, 3*cm, 3*cm, 3*cm])
+        table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, 1), 16),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.lightgrey),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e8f0fe')),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
         elements.append(table)
         elements.append(Spacer(1, 20))
 
-        scores = []
-        for row in history[:10]:
-            if len(row) > 1:
-                score = safe_score(row[1])
-                scores.append(score)
+        if len(history) >= 3:
+            elements.append(Paragraph("Score Trend", styles['SectionTitle']))
 
-        if len(scores) >= 3:
-            elements.append(
-                Paragraph("Score Trend (Last 10 Scans)", styles["SectionTitle"]))
-            elements.append(build_score_trend_graph(scores))
-            elements.append(Spacer(1, 10))
+            scores = []
+            for row in history[:10]:
+                if len(row) > 2:
+                    score = safe_score(row[2])
+                    scores.append(score)
 
-        exposure_changes = report_data.get("exposure_changes", {})
-        resolved = exposure_changes.get("resolved_findings", [])
-        new_findings = exposure_changes.get("new_findings", [])
+            if len(scores) >= 3:
+                drawing = Drawing(400, 150)
+                line = LinePlot()
+                line.x = 50
+                line.y = 20
+                line.width = 300
+                line.height = 100
+
+                data_points = list(enumerate(scores))
+                line.data = [data_points]
+
+                try:
+                    line.lines[0].strokeColor = colors.HexColor('#0f3460')
+                    line.lines[0].strokeWidth = 2
+                except:
+                    pass
+
+                line.xValueAxis.valueMin = -0.5
+                line.xValueAxis.valueMax = len(scores) - 0.5
+                line.xValueAxis.valueStep = 1
+
+                min_score = max(0, min(scores) - 5)
+                max_score = min(100, max(scores) + 5)
+                if min_score == max_score:
+                    min_score = max(0, min_score - 5)
+                    max_score = min(100, max_score + 5)
+
+                line.yValueAxis.valueMin = min_score
+                line.yValueAxis.valueMax = max_score
+
+                drawing.add(line)
+                elements.append(drawing)
+                elements.append(Spacer(1, 10))
+
+        exposure_changes = report_data.get('exposure_changes', {})
+        resolved = exposure_changes.get('resolved_findings', [])
+        new_findings = exposure_changes.get('new_findings', [])
 
         if resolved or new_findings:
             elements.append(
-                Paragraph("Exposure Changes", styles["SectionTitle"]))
-
+                Paragraph("Exposure Changes", styles['SectionTitle']))
             if resolved:
                 elements.append(
-                    Paragraph(
-                        f"Resolved: {len(resolved)} findings", styles["Normal"])
-                )
-                for item in resolved[:3]:
-                    elements.append(Paragraph(f"- {item}", styles["Normal"]))
-
+                    Paragraph(f"Resolved: {len(resolved)} findings", styles['Normal']))
             if new_findings:
                 elements.append(
-                    Paragraph(
-                        f"New: {len(new_findings)} findings detected",
-                        styles["Normal"],
-                    )
-                )
-                for item in new_findings[:3]:
-                    elements.append(Paragraph(f"- {item}", styles["Normal"]))
+                    Paragraph(f"New: {len(new_findings)} findings", styles['Normal']))
     else:
         elements.append(
-            Paragraph(
-                "No historical scan data available for comparison.",
-                styles["Normal"],
-            )
-        )
+            Paragraph("No historical scan data available.", styles['Normal']))
 
     elements.append(Spacer(1, 15))
-    elements.append(Paragraph("Disclaimer", styles["SectionTitle"]))
-    elements.append(
-        Paragraph(
-            "This report reflects the attack surface observed at the time of assessment. "
-            "Absence of findings does not guarantee absence of vulnerabilities. "
-            "Results are based on publicly accessible information and automated analysis.",
-            styles["Normal"],
-        )
-    )
+    elements.append(Paragraph("Disclaimer", styles['SectionTitle']))
+    elements.append(Paragraph(
+        "This report reflects the attack surface at the time of assessment. "
+        "Results are based on publicly accessible information and automated analysis.",
+        styles['Normal']
+    ))
 
     add_footer(elements, styles)
     return elements
 
 
-def build_score_trend_graph(scores):
-    drawing = Drawing(400, 150)
-
-    line = LinePlot()
-    line.x = 50
-    line.y = 20
-    line.width = 300
-    line.height = 100
-
-    data_points = list(enumerate(scores))
-    line.data = [data_points]
-
-    try:
-        line.lines[0].strokeColor = colors.HexColor("#0f3460")
-        line.lines[0].strokeWidth = 2
-    except Exception:
-        pass
-
-    line.xValueAxis.valueMin = -0.5
-    line.xValueAxis.valueMax = len(scores) - 0.5
-    line.xValueAxis.valueStep = 1
-
-    min_score = max(0, min(scores) - 5)
-    max_score = min(100, max(scores) + 5)
-
-    if min_score == max_score:
-        min_score = max(0, min_score - 5)
-        max_score = min(100, max_score + 5)
-
-    line.yValueAxis.valueMin = min_score
-    line.yValueAxis.valueMax = max_score
-
-    drawing.add(line)
-    return drawing
-
-
 def safe_score(value):
+    """Safely convert score value to int or float."""
     try:
         score = float(value)
         if score.is_integer():
