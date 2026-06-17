@@ -1,5 +1,5 @@
-# modules/pdf_report.py - v2.9 Professional Multi-Page Executive PDF Report
-# Fixed: TOC self-exclusion, Cover Page bookmark
+# modules/pdf_report.py - v2.10 Professional Multi-Page Executive PDF Report
+# Fixed: Historical Trend score extraction with flexible index support
 
 import os
 from datetime import datetime
@@ -43,7 +43,6 @@ class TOCDocTemplate(SimpleDocTemplate):
             text = flowable.getPlainText()
             style_name = flowable.style.name
 
-            # 🆕 TOC kendini eklemesin
             if style_name == "PageTitle" and text != "Table of Contents":
                 self.notify("TOCEntry", (0, text, self.page))
 
@@ -227,11 +226,50 @@ def add_footer(elements, styles):
     elements.append(Paragraph(BRANDING['footer_text'], styles['Footer']))
 
 
+# ============================================================
+# HELPER: Flexible Score Extraction
+# ============================================================
+
+def extract_score(row):
+    """
+    Supports multiple database formats:
+    - (scan_date, score, rating)
+    - (id, domain, score, rating, scan_date)
+    - (id, domain, score, rating, scan_date, findings_json)
+    """
+    try:
+        if not row:
+            return 0
+
+        # Try to find score based on common patterns
+        # Pattern 1: (scan_date, score, rating) -> score at index 1
+        # Pattern 2: (id, domain, score, rating, scan_date) -> score at index 2
+        # Pattern 3: (id, domain, score, rating, scan_date, findings_json) -> score at index 2
+
+        if len(row) == 3:
+            # (scan_date, score, rating)
+            return safe_score(row[1])
+        elif len(row) >= 5:
+            # (id, domain, score, rating, scan_date, ...)
+            return safe_score(row[2])
+        else:
+            # Last resort: check each element for numeric value
+            for value in row:
+                if isinstance(value, (int, float)):
+                    return safe_score(value)
+                elif isinstance(value, str) and value.replace('.', '').isdigit():
+                    return safe_score(value)
+
+        return 0
+    except Exception:
+        return 0
+
+
 def build_cover_page(domain, report_data, styles):
     """Cover Page"""
     elements = []
 
-    # 🆕 Görünmez bookmark (TOC için)
+    # Bookmark for TOC
     elements.append(Paragraph('<a name="cover"/>', styles["Normal"]))
     elements.append(Spacer(1, 10))
 
@@ -493,7 +531,6 @@ def build_cve_page(report_data, styles):
         ]))
         elements.append(cve_table)
     else:
-        # Empty state
         elements.append(Paragraph(
             "No mapped CVEs found for detected technologies.",
             styles['EmptyState']
@@ -563,8 +600,9 @@ def build_historical_trend_page(report_data, styles):
         current = history[0]
         previous = history[1]
 
-        current_score = safe_score(current[2]) if len(current) > 2 else 0
-        previous_score = safe_score(previous[2]) if len(previous) > 2 else 0
+        # 🆕 Use flexible score extraction
+        current_score = extract_score(current)
+        previous_score = extract_score(previous)
         change = current_score - previous_score if current_score and previous_score else 0
 
         comparison_data = [
@@ -594,8 +632,8 @@ def build_historical_trend_page(report_data, styles):
 
             scores = []
             for row in history[:10]:
-                if len(row) > 2:
-                    score = safe_score(row[2])
+                score = extract_score(row)
+                if score > 0:
                     scores.append(score)
 
             if len(scores) >= 3:
