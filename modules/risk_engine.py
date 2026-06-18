@@ -48,6 +48,20 @@ SSH_PORT = 22
 def generate_findings(report_data: dict) -> list:
     findings = []
 
+    dns_records = report_data.get("dns_records", {})
+    ssl_information = report_data.get("ssl_information", {})
+    ct_subdomains = report_data.get("certificate_transparency_subdomains", [])
+
+    has_dns = bool(dns_records.get("A") or dns_records.get("AAAA") or dns_records.get("MX") or dns_records.get("NS"))
+
+    if not has_dns and not ct_subdomains and ssl_information.get("error"):
+        findings.append({
+            "severity": "Unreachable",
+            "finding": "Target could not be resolved",
+            "recommendation": "Verify the domain spelling and DNS configuration before interpreting security results."
+        })
+        return findings
+
     tech = report_data.get("technology_fingerprint", {})
     open_ports = report_data.get("open_ports", [])
     subdomains = report_data.get("subdomains", [])
@@ -260,6 +274,13 @@ def generate_findings(report_data: dict) -> list:
 
 
 def calculate_attack_surface_score(findings: list) -> dict:
+    if any(finding.get("severity") == "Unreachable" for finding in findings):
+        return {
+            "score": None,
+            "rating": "Unreachable",
+            "status": "scan_failed"
+        }
+
     score = 100
 
     severity_weights = {
