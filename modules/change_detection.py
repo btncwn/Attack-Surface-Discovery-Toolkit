@@ -8,7 +8,7 @@ def compare_findings(
     previous_findings_json: Union[str, List[Dict[str, str]]]
 ) -> Dict[str, List[str]]:
     """
-    İki tarama arasındaki bulgu farklarını tespit eder.
+    Detects finding differences between two scans.
 
     Args:
         current_findings: Mevcut taramadaki findings listesi
@@ -20,7 +20,7 @@ def compare_findings(
             "resolved_findings": List[str]
         }
     """
-    # JSON string'ini listeye dönüştür
+    # Convert JSON string to list
     if isinstance(previous_findings_json, str):
         try:
             previous_findings = json.loads(previous_findings_json)
@@ -31,7 +31,7 @@ def compare_findings(
     else:
         previous_findings = []
 
-    # Finding'leri karşılaştırılabilir tuple'lara dönüştür
+    # Convert findings into comparable tuples
     current_set: Set[Tuple[str, str]] = set()
     for f in current_findings:
         finding = f.get('finding', '')

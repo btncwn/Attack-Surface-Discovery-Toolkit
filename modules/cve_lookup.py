@@ -34,7 +34,7 @@ ALLOWED_CVE_TECHNOLOGIES = {
 
 
 def check_exploit_exists(cve_id: str) -> bool:
-    """Exploit-DB'de bu CVE için exploit var mı kontrol et."""
+    """Check whether Exploit-DB has an exploit for this CVE."""
     try:
         url = f"https://www.exploit-db.com/search?cve={cve_id}"
         response = requests.get(url, timeout=10, headers={
@@ -91,11 +91,11 @@ def normalize_technology(tech: str) -> str:
         "tengine": "tengine",
     }
 
-    # Önce tam eşleşme dene
+    # Try exact match first
     if tech_lower in normalization_map:
         return normalization_map[tech_lower]
 
-    # Kısmi eşleşme dene
+    # Try partial match
     for key, value in normalization_map.items():
         if key in tech_lower:
             return value
@@ -106,8 +106,8 @@ def normalize_technology(tech: str) -> str:
 
 def enrich_technology_detection(tech_info: Dict, dns_records: Dict) -> Set[str]:
     """
-    Sadece gerçek çalışan teknolojileri tespit et.
-    TXT/SPF/Verification kayıtlarını KULLANMA.
+    Detect only real running technologies.
+    Do not use TXT/SPF/verification records.
     """
 
     technologies = set()
@@ -126,7 +126,7 @@ def enrich_technology_detection(tech_info: Dict, dns_records: Dict) -> Set[str]:
         if tech and tech in ALLOWED_CVE_TECHNOLOGIES:
             technologies.add(tech)
 
-    # 3. Content-Type (sadece net teknolojiler için)
+    # 3. Content-Type (only for clear technologies)
     content_type = tech_info.get("content_type", "")
     if "php" in content_type.lower():
         technologies.add("php")
@@ -157,13 +157,13 @@ def lookup_cves_for_technology(
     if not technology_name or len(technology_name) < 3:
         return []
 
-    # 🆕 Sadece izin verilen teknolojiler için CVE ara
+    # 🆕 Search CVEs only for allowed technologies
     if technology_name not in ALLOWED_CVE_TECHNOLOGIES:
         return []
 
     url = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
-    # Teknoloji bazında daha iyi keyword'ler
+    # Better keywords by technology
     keyword_map = {
         "apache": "apache http server",
         "nginx": "nginx",
@@ -250,7 +250,7 @@ def lookup_cves_for_technology(
                     else:
                         severity = "LOW"
 
-            # Exploit kontrolü (HIGH ve üzeri)
+            # Exploit check (HIGH and above)
             has_exploit = False
             if severity in ["CRITICAL", "HIGH"] and cvss_score and cvss_score >= 7.0:
                 has_exploit = check_exploit_exists(cve_id)
@@ -276,7 +276,7 @@ def lookup_cves_for_technology(
 
 
 def correlate_cves(tech_info: Dict, dns_records: Dict) -> Dict[str, List[Dict]]:
-    """Tüm teknolojiler için CVE'leri topla."""
+    """Collect CVEs for all technologies."""
 
     technologies = enrich_technology_detection(tech_info, dns_records)
     results = {}
@@ -291,7 +291,7 @@ def correlate_cves(tech_info: Dict, dns_records: Dict) -> Dict[str, List[Dict]]:
 
 
 def get_critical_cves(tech_info: Dict, dns_records: Dict) -> List[Dict]:
-    """Sadece CRITICAL CVE'leri döndür."""
+    """Return only CRITICAL CVEs."""
 
     all_cves = correlate_cves(tech_info, dns_records)
     critical_cves = []
@@ -310,7 +310,7 @@ def get_critical_cves(tech_info: Dict, dns_records: Dict) -> List[Dict]:
 
 
 def get_exploitable_cves(tech_info: Dict, dns_records: Dict) -> List[Dict]:
-    """Exploit'i mevcut olan CVE'leri döndür."""
+    """Return CVEs with available exploits."""
 
     all_cves = correlate_cves(tech_info, dns_records)
     exploitable_cves = []

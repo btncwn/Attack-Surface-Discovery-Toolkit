@@ -7,7 +7,7 @@ def compare_discovered_assets(
     ct_subdomains: List[str]
 ) -> Dict[str, Union[List[str], int]]:
     """
-    Standart subdomain enumeration ile CT logs'tan gelen subdomain'leri karşılaştırır.
+    Compares standard subdomain enumeration with subdomains from CT logs.
 
     Args:
         standard_subdomains: Standart enumeration'dan gelen subdomain listesi
@@ -36,7 +36,7 @@ def compare_discovered_assets(
     # CT subdomain'leri normalize et
     ct_set: Set[str] = set(ct_subdomains)
 
-    # Farkları bul
+    # Find differences
     hidden_assets = ct_set - standard_set
     common_assets = standard_set & ct_set
 

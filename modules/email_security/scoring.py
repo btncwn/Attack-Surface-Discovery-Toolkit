@@ -2,23 +2,23 @@
 """
 Email Security skor motoru.
 
-v1 -> v1.1 değişiklikleri (Sprint 1 review kararları):
-- `grade` (A-F) alanı kaldırıldı. Ürün ileride birden fazla skor
-  gösterecek (Email Security Score, CyberMeter Score, vb.) ve A-F
-  harfi bunların yanında kafa karıştırıcı olurdu. `total_score` +
+v1 -> v1.1 changes based on Sprint 1 review decisions:
+- The `grade` (A-F) field was removed. The product may later show multiple scores
+  such as Email Security Score and CyberMeter Score, and A-F
+  letters would be confusing next to them. `total_score` +
   `status` yeterli.
-- DMARC ağırlığı 40 -> 50, MTA-STS ve TLS-RPT 10 -> 5'e düşürüldü
-  (DMARC'ın eksikliği bir KOBİ için TLS-RPT'nin eksikliğinden çok
+- DMARC weight changed from 40 to 50, while MTA-STS and TLS-RPT changed from 10 to 5
+  because missing DMARC is a greater risk for an SME than missing TLS-RPT
   daha kritik).
-- Tüm alt-skor fonksiyonları artık kendi maksimumlarını sabit sayı
-  olarak değil, `cls.WEIGHTS` üzerinden türetiyor. Böylece ağırlıklar
-  ileride tekrar değişirse (ki bir kez değişti), her fonksiyonun
-  içindeki magic number'ları tek tek güncellemek gerekmiyor.
+- All sub-score functions now derive their maximum values from
+  `cls.WEIGHTS` instead of hardcoded numbers. This means if weights
+  change again in the future, each function does not need
+  manual updates to internal magic numbers.
 
-Önceki sürümden taşınan fix: `_score_dmarc`, coarse `status` enum'u
-yerine doğrudan `policy` + `pct` üzerinden çalışıyor; `reject` ve
-`quarantine` için bantlar kesişmiyor, böylece `quarantine@100%` hiçbir
-zaman `reject` ile aynı skoru almıyor.
+Fix carried over from the previous version: `_score_dmarc` uses
+`policy` + `pct` directly instead of the coarse `status` enum; `reject` and
+`quarantine` bands do not overlap, so `quarantine@100%` never
+receives the same score as `reject`.
 """
 from typing import Dict, Any
 from dataclasses import dataclass
@@ -39,25 +39,25 @@ class EmailScoringEngine:
     WEIGHTS = {
         "spf": 20,
         "dkim": 20,
-        "dmarc": 50,   # En kritik kontrol - KOBİ için DMARC eksikliği en büyük risk
+        "dmarc": 50,   # Most critical control - missing DMARC is the biggest SME risk
         "mta_sts": 5,
         "tls_rpt": 5,
     }
 
-    # DMARC policy başına (min_oran, max_oran) - WEIGHTS["dmarc"] üzerinden.
+    # Per DMARC policy (min_ratio, max_ratio) based on WEIGHTS["dmarc"].
     # pct=0 -> min_oran * weight, pct=100 -> max_oran * weight.
-    # Bantlar kesişmiyor: reject'in tabanı quarantine'in tavanından yüksek.
+    # Bands do not overlap: reject lower bound is higher than quarantine upper bound.
     _DMARC_POLICY_FRACTIONS = {
         "reject": (0.75, 1.0),       # weight=50 -> 38 .. 50
         "quarantine": (0.375, 0.625),  # weight=50 -> 19 .. 31
     }
     _DMARC_NONE_FRACTION = 0.25     # izleme modu, sabit (weight=50 -> 13)
-    # belirsiz durum, küçük şüphe payı (weight=50 -> 6)
+    # uncertain state, small uncertainty allowance (weight=50 -> 6)
     _DMARC_ERROR_FRACTION = 0.125
 
     @classmethod
     def calculate(cls, results: Dict[str, Any]) -> EmailSecurityScore:
-        """Ağırlıklı skor hesapla"""
+        """Calculate weighted score"""
 
         spf_score = cls._score_spf(results.get("spf", {}))
         dkim_score = cls._score_dkim(results.get("dkim", {}))
@@ -116,7 +116,7 @@ class EmailScoringEngine:
         if dkim_result.get("status") == "VERIFIED":
             return weight
         elif dkim_result.get("status") == "NOT_VERIFIED":
-            return round(weight * 0.5)  # Tam puan verme, araştırma yapılsın
+            return round(weight * 0.5)  # Do not give full points; further review is needed
         else:
             return 0
 

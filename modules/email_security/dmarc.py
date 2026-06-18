@@ -49,34 +49,34 @@ class DMARCScanner:
             dmarc_record = str(answers[0])
             parsed = cls._parse_dmarc(dmarc_record)
 
-            # pct varsayılan 100
+            # pct defaults to 100
             pct = parsed.get("pct", 100)
             policy = parsed.get("p", "none")
 
             if policy == "reject" and pct == 100:
                 status = "FULLY_PROTECTED"
                 risk_level = "LOW"
-                message = "Tam DMARC koruması aktif."
+                message = "Full DMARC protection is active."
             elif policy == "reject" and pct < 100:
                 status = "PARTIAL_PROTECTED"
                 risk_level = "MEDIUM"
-                message = f"DMARC koruması kısmi (%{pct} uygulanıyor)."
+                message = f"DMARC protection is partial ({pct}% applied)."
             elif policy == "quarantine" and pct == 100:
                 status = "PARTIAL_PROTECTED"
                 risk_level = "MEDIUM"
-                message = "Quarantine politikası aktif. Tam koruma için p=reject önerilir."
+                message = "Quarantine policy is active. Use p=reject for full protection."
             elif policy == "quarantine" and pct < 100:
                 status = "PARTIAL_PROTECTED"
                 risk_level = "HIGH"
-                message = f"Quarantine politikası kısmi (%{pct} uygulanıyor)."
+                message = f"Quarantine policy is partial ({pct}% applied)."
             elif policy == "none":
                 status = "REPORTING_ONLY"
                 risk_level = "HIGH"
-                message = "DMARC sadece raporlama modunda. Koruma yok."
+                message = "DMARC is in reporting-only mode. No enforcement is active."
             else:
                 status = "ERROR"
                 risk_level = "HIGH"
-                message = f"Bilinmeyen DMARC politikası: {policy}"
+                message = f"Unknown DMARC policy: {policy}"
 
             return DMARCResult(
                 status=status,
@@ -99,13 +99,13 @@ class DMARCScanner:
                 pct=0,
                 rua=None,
                 ruf=None,
-                message=f"DMARC kontrolü hatası: {str(e)}",
+                message=f"DMARC check error: {str(e)}",
                 risk_level="HIGH",
             )
 
     @classmethod
     def _parse_dmarc(cls, record: str) -> Dict[str, Any]:
-        """DMARC kaydını parse et"""
+        """Parse the DMARC record"""
         parsed: Dict[str, Any] = {}
         parts = record.split(";")
         for part in parts:
@@ -135,6 +135,6 @@ class DMARCScanner:
             pct=0,
             rua=None,
             ruf=None,
-            message="DMARC kaydı bulunamadı. Email spoofing riski yüksek.",
+            message="DMARC record not found. Email spoofing risk is high.",
             risk_level="CRITICAL",
         )

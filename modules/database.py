@@ -9,7 +9,7 @@ DB_FILE = "attack_surface.db"
 
 
 def initialize_database() -> None:
-    """Veritabanı tablosunu oluştur."""
+    """Create the database table."""
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
 
@@ -46,7 +46,7 @@ def save_scan_result(
     findings: List[Dict[str, Any]],
     report_data: Dict[str, Any]
 ) -> None:
-    """Tarama sonucunu veritabanına kaydet."""
+    """Save the scan result to the database."""
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
 
@@ -74,7 +74,7 @@ def save_scan_result(
 
 
 def get_scan_history(domain: str) -> List[Tuple[str, int, str]]:
-    """Domain geçmişini getir."""
+    """Get domain scan history."""
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
 
@@ -95,7 +95,7 @@ def get_scan_history(domain: str) -> List[Tuple[str, int, str]]:
 def get_previous_scan(
     domain: str
 ) -> Optional[Tuple]:
-    """Bir önceki taramayı getir."""
+    """Get the previous scan."""
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
 

@@ -42,11 +42,11 @@ _NOT_FOUND_EXCEPTIONS = (
 
 
 class DKIMScanner:
-    # Gerçek dünya selector'ları - sürekli güncellenmeli.
-    # dict.fromkeys ile sırayı koruyarak tekilleştiriyoruz; orijinal
-    # listede "s1"/"s2"/"s3" gibi selector'lar birden fazla provider
-    # bloğunda tekrarlanıyordu ve aynı DNS sorgusunu gereksiz yere
-    # iki kez atıyorduk.
+    # Real-world selectors - should be updated regularly.
+    # Deduplicate while preserving order with dict.fromkeys; the original
+    # list had selectors such as "s1"/"s2"/"s3" repeated across multiple provider
+    # blocks, causing unnecessary duplicate DNS queries.
+    # 
     _RAW_SELECTORS = [
         # Microsoft 365 / Exchange Online
         "selector1", "selector2", "selector3",
@@ -76,7 +76,7 @@ class DKIMScanner:
     ]
     COMMON_SELECTORS = list(dict.fromkeys(_RAW_SELECTORS))
 
-    # Bilinen provider'lar için selector kalıpları
+    # Selector patterns for known providers
     PROVIDER_PATTERNS = {
         "microsoft": ["selector1", "selector2", "selector3", "s1", "s2", "s3"],
         "google": ["google", "gmail", "k1", "k2"],
@@ -86,7 +86,7 @@ class DKIMScanner:
 
     @classmethod
     async def scan(cls, domain: str) -> DKIMResult:
-        """DKIM kayıtlarını daha gerçekçi şekilde kontrol et"""
+        """Check DKIM records more realistically"""
         found_selectors: List[str] = []
         checked: List[str] = []
 
@@ -106,7 +106,7 @@ class DKIMScanner:
                 status="VERIFIED",
                 selectors_checked=checked,
                 found_selectors=found_selectors,
-                message=f"DKIM imzalama aktif. {len(found_selectors)} selector bulundu.",
+                message=f"DKIM signing is active. {len(found_selectors)} selector bulundu.",
                 risk_level="LOW",
             )
 
@@ -115,28 +115,28 @@ class DKIMScanner:
             selectors_checked=checked,
             found_selectors=[],
             message=(
-                "DKIM imzalama doğrulanamadı. Domain'inizde DKIM aktif "
-                "olabilir ancak selector bilinmiyor. İletişim kurarak doğrulayın."
+                "DKIM signing could not be verified. DKIM may be active "
+                "but the selector is unknown. Verify with the email administrator."
             ),
             risk_level="MEDIUM",
         )
 
     @classmethod
     async def _check_dkim_record(cls, dkim_domain: str, selector: str) -> Tuple[str, bool]:
-        """Tek bir DKIM kaydını kontrol et (async-safe)."""
+        """Check a single DKIM record (async-safe)."""
         try:
             answers = await dns.asyncresolver.resolve(dkim_domain, "TXT")
             return (selector, bool(answers))
         except _NOT_FOUND_EXCEPTIONS:
             return (selector, False)
         except dns.exception.DNSException:
-            # Beklenmedik ama DNS katmanına ait bir hata. Sessizce yutmak
-            # yerine "bulunamadı" say; isterseniz burada loglama ekleyin.
+            # Unexpected DNS-layer error. Treat it as not found
+            # instead of swallowing it silently; logging can be added here.
             return (selector, False)
 
     @classmethod
     async def verify_with_provider(cls, domain: str, provider: str) -> Dict[str, Any]:
-        """Belirli bir provider için DKIM kontrolü"""
+        """DKIM check for a specific provider"""
         if provider not in cls.PROVIDER_PATTERNS:
             return {"error": "Unknown provider"}
 

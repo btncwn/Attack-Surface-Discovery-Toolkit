@@ -41,7 +41,7 @@ HIGH_RISK_PORTS = {
     9093: ("Medium", "Kafka broker (TLS) exposed"),
 }
 
-# 🆕 SSH için ayrı bir kontrol (Informational olarak)
+# 🆕 Separate SSH check as informational
 SSH_PORT = 22
 
 
@@ -113,7 +113,7 @@ def generate_findings(report_data: dict) -> list:
             "recommendation": "Add X-Content-Type-Options: nosniff."
         })
 
-    # 3. HTTP port (Informational) - HIGH_RISK_PORTS'tan ayrı tut
+    # 3. HTTP port (Informational) - Keep separate from HIGH_RISK_PORTS
     if 80 in open_ports:
         findings.append({
             "severity": "Informational",
@@ -132,7 +132,7 @@ def generate_findings(report_data: dict) -> list:
             )
         })
 
-    # 5. High risk ports (SSH ve 80 hariç)
+    # 5. High risk ports (excluding SSH and port 80)
     for port in open_ports:
         if port in HIGH_RISK_PORTS and port != 80 and port != SSH_PORT:
             severity, description = HIGH_RISK_PORTS[port]
@@ -259,7 +259,7 @@ def generate_findings(report_data: dict) -> list:
                         "Review vendor security advisories for remediation steps."
                     )
                 })
-            # 🆕 DÜZELTME 3: Sadece anlamlı sayıda CVE varsa finding üret
+            # 🆕 FIX 3: Generate a finding only when there is a meaningful number of CVEs
             elif total_cves >= 5:
                 findings.append({
                     "severity": "Medium",

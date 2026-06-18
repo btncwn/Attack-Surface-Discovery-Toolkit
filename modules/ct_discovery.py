@@ -7,10 +7,10 @@ from typing import Dict, List, Set
 
 def get_ct_subdomains(domain: str) -> Dict:
     """
-    Certificate Transparency logs'tan subdomain'leri çeker.
+    Fetches subdomains from Certificate Transparency logs.
 
     Args:
-        domain: Hedef domain (örn: example.com)
+        domain: Target domain, for example: example.com
 
     Returns:
         Dict: {
@@ -51,7 +51,7 @@ def get_ct_subdomains(domain: str) -> Dict:
                 errors.append(f"crt.sh JSON parsing failed: {error}")
                 continue
 
-            # Veri yapısını normalize et
+            # Normalize the data structure
             if isinstance(data, dict) and "results" in data:
                 entries = data["results"]
             elif isinstance(data, list):
@@ -61,17 +61,17 @@ def get_ct_subdomains(domain: str) -> Dict:
                 continue
 
             for entry in entries:
-                # name_value veya name anahtarını kontrol et
+                # Check the name_value or name key
                 name_value = entry.get("name_value") or entry.get("name") or ""
 
                 for subdomain in name_value.split("\n"):
                     subdomain = subdomain.strip().lower().replace("*.", "")
 
-                    # Domain eşleşmesini kontrol et
+                    # Check domain match
                     if subdomain and (subdomain == domain or subdomain.endswith(f".{domain}")):
                         discovered.add(subdomain)
 
-            # Rate limiting - crt.sh'e nazik olalım
+            # Rate limiting - be polite to crt.sh
             time.sleep(0.5)
 
         except requests.exceptions.Timeout:

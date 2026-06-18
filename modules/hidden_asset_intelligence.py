@@ -3,26 +3,26 @@ from datetime import datetime
 
 class HiddenAssetIntelligence:
     """
-    Sprint 5 - Certificate Transparency tabanlı hidden asset discovery
-    Risk sınıflandırması ile
+    Sprint 5 - Certificate Transparency-based hidden asset discovery
+    With risk classification
     """
 
     RISK_LEVELS = {
         "CRITICAL": {
             "patterns": ["admin", "portal", "dashboard", "manager"],
-            "reason": "Admin paneli veya yönetim arayüzü. Yetkisiz erişim riski yüksek."
+            "reason": "Admin panel or management interface. High risk of unauthorized access."
         },
         "HIGH": {
             "patterns": ["email", "mail", "autodiscover", "api", "auth", "login"],
-            "reason": "Email/API/Auth subdomain'i. Kimlik avı veya veri sızıntısı riski."
+            "reason": "Email/API/Auth subdomain. Phishing or data leakage risk."
         },
         "MEDIUM": {
             "patterns": ["test", "dev", "stage", "staging", "demo"],
-            "reason": "Test/development ortamı. Hassas veri veya güvenlik zafiyeti içerebilir."
+            "reason": "Test/development environment. May contain sensitive data or security weaknesses."
         },
         "LOW": {
             "patterns": ["cdn", "static", "assets", "img", "files"],
-            "reason": "CDN veya statik asset. Düşük risk ancak envanterde olmalı."
+            "reason": "CDN or static asset. Low risk but should be included in the inventory."
         }
     }
 
@@ -35,7 +35,7 @@ class HiddenAssetIntelligence:
         ct_set = set(ct_assets)
         hidden = ct_set - known_set
 
-        # Her asset için risk analizi
+        # Risk analysis for each asset
         classified = []
         for asset in hidden:
             risk = cls._classify_risk(asset)
@@ -80,7 +80,7 @@ class HiddenAssetIntelligence:
 
         return {
             "level": "LOW",
-            "reason": "Bu asset Certificate Transparency loglarında kayıtlı ancak standart DNS enumeration'da görünmüyor."
+            "reason": "This asset appears in Certificate Transparency logs but not in standard DNS enumeration."
         }
 
     @classmethod
