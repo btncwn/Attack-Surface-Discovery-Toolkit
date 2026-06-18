@@ -26,6 +26,7 @@ from modules.asset_discovery import compare_discovered_assets
 from modules.cve_lookup import correlate_cves
 from modules.executive_summary import generate_executive_summary, prioritize_remediation
 from modules.executive_intelligence import generate_executive_intelligence
+from modules.remediation_prioritization import generate_remediation_plan
 from modules.scheduler import is_valid_domain, ScanScheduler
 
 st.set_page_config(
@@ -147,6 +148,9 @@ if submitted:
 
         executive_intelligence = generate_executive_intelligence(report_data)
         report_data["executive_intelligence"] = executive_intelligence
+
+        remediation_plan = generate_remediation_plan(report_data)
+        report_data["remediation_plan"] = remediation_plan
 
         executive_summary = generate_executive_summary(report_data)
         prioritized_findings = prioritize_remediation(findings)
