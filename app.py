@@ -98,6 +98,18 @@ if submitted:
         security_headers = check_security_headers(domain)
         cve_results = correlate_cves(tech_info, dns_records)
 
+        discovered_cves = []
+        if isinstance(cve_results, dict):
+            for value in cve_results.values():
+                if isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict) and item.get("cve_id"):
+                            discovered_cves.append(item["cve_id"])
+                        elif isinstance(item, dict) and item.get("id"):
+                            discovered_cves.append(item["id"])
+
+        kev_intelligence = correlate_kev(discovered_cves) if discovered_cves else []
+
         shodan_info = {}
         if shodan_api_key and dns_records.get("A"):
             first_ip = dns_records["A"][0]
@@ -123,6 +135,7 @@ if submitted:
             "certificate_transparency_results": ct_results,
             "otx_information": otx_info,
             "cve_correlation": cve_results,
+            "kev_intelligence": kev_intelligence,
         }
 
         findings = generate_findings(report_data)
