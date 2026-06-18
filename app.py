@@ -147,24 +147,33 @@ if submitted:
 
         report_data["exposure_changes"] = exposure_changes
 
-previous_report = None
+        # ============================================================
+        # ✅ DÜZELTİLDİ: previous_report ve exposure_timeline burada
+        # ============================================================
+        previous_report = None
 
-if 'previous_scan' in locals() and previous_scan:
-    previous_report = previous_scan[4] or {}
+        if previous_scan:
+            previous_report = previous_scan[4] or {}
 
-    if not previous_report:
-        previous_report = {
-            "attack_surface_score": {
-                "score": previous_scan[1],
-                "rating": previous_scan[2]
-            },
-            "findings": previous_scan[3],
-            "subdomains": [],
-            "certificate_transparency_subdomains": []
-        }
+            if not previous_report:
+                previous_report = {
+                    "attack_surface_score": {
+                        "score": previous_scan[1],
+                        "rating": previous_scan[2]
+                    },
+                    "findings": previous_scan[3],
+                    "subdomains": [],
+                    "certificate_transparency_subdomains": []
+                }
+
+        exposure_timeline = generate_exposure_timeline(
+            report_data,
+            previous_report
+        )
 
         report_data["exposure_timeline"] = exposure_timeline
 
+        # SSL issuer düzeltmesi
         ssl_info = report_data.get("ssl_information", {})
         if ssl_info and "issuer" in ssl_info:
             issuer = ssl_info.get("issuer", [])
@@ -193,6 +202,10 @@ if 'previous_scan' in locals() and previous_scan:
         pdf_report = generate_pdf_report(domain, report_data)
         html_report = generate_html_report(domain, report_data)
         json_report = save_report(domain, report_data)
+
+    # ============================================================
+    # 📊 RAPORLAMA - if submitted bloğunun içinde
+    # ============================================================
 
     st.subheader("📋 Executive Summary")
 
@@ -437,8 +450,6 @@ if 'previous_scan' in locals() and previous_scan:
 
     st.subheader("🔍 Current vs Previous Scan")
 
-    previous_scan = get_previous_scan(domain)
-
     if previous_scan:
         previous_date = previous_scan[0]
         previous_score = previous_scan[1]
@@ -459,8 +470,6 @@ if 'previous_scan' in locals() and previous_scan:
             st.error(f"Risk score decreased by {abs(score_change)} points.")
         else:
             st.info("No score change since the previous scan.")
-
-        exposure_changes = compare_findings(findings, previous_findings_json)
 
         st.subheader("🧭 Exposure Change Detection")
 
@@ -514,10 +523,6 @@ if 'previous_scan' in locals() and previous_scan:
 
     st.subheader("📄 Reports")
 
-    html_report = f"reports/{domain}_report.html"
-    pdf_report = f"reports/{domain}_report.pdf"
-    json_report = f"reports/{domain}_report.json"
-
     with open(html_report, "rb") as file:
         st.download_button(
             label="📄 Download HTML Report",
@@ -541,17 +546,16 @@ if 'previous_scan' in locals() and previous_scan:
             file_name=f"{domain}_report.json",
             mime="application/json"
         )
-# app.py - Son kısımlar (tüm expander'lar ve raporlamalar bittikten sonra)
 
 # ============================================================
-# 📅 SCHEDULED SCANS DASHBOARD
+# 📅 SCHEDULED SCANS DASHBOARD - if submitted DIŞINDA
 # ============================================================
 
 st.subheader("📅 Scheduled Scans")
 
 scheduler = ScanScheduler()
 
-# 🆕 Scheduler'ı otomatik başlat
+# Scheduler'ı otomatik başlat
 if not scheduler.running:
     scheduler.start()
 
