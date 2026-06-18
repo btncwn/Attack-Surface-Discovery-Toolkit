@@ -430,6 +430,28 @@ if submitted:
                 "No high-severity CVE correlation results found for detected technologies."
             )
 
+    with st.expander("🚨 CISA KEV Intelligence"):
+        if kev_intelligence:
+            st.error(
+                f"🚨 {len(kev_intelligence)} known exploited vulnerability/vulnerabilities detected."
+            )
+
+            for item in kev_intelligence:
+                cve_id = item.get("cveID", "Unknown CVE")
+                vendor = item.get("vendorProject", "Unknown vendor")
+                product = item.get("product", "Unknown product")
+                vulnerability_name = item.get("vulnerabilityName", "Known exploited vulnerability")
+                due_date = item.get("dueDate", "N/A")
+                required_action = item.get("requiredAction", "Immediate remediation recommended.")
+
+                st.markdown(f"### 🔴 {cve_id}")
+                st.write(f"**Vendor/Product:** {vendor} / {product}")
+                st.write(f"**Vulnerability:** {vulnerability_name}")
+                st.write(f"**CISA Due Date:** {due_date}")
+                st.warning(required_action)
+        else:
+            st.success("No CISA Known Exploited Vulnerabilities detected.")
+
     with st.expander("🛡️ Security Headers Analysis"):
         st.json(security_headers)
 
