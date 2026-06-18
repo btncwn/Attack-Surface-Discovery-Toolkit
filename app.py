@@ -1,5 +1,8 @@
+from modules import exposure_timeline
+from modules.scheduler import is_valid_domain, ScanScheduler
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
 from modules.dns_lookup import get_dns_records
 from modules.whois_lookup import get_whois_info
@@ -16,11 +19,12 @@ from modules.shodan_lookup import get_shodan_info
 from modules.security_headers import check_security_headers
 from modules.otx_lookup import get_otx_domain_info
 from modules.change_detection import compare_findings
+from modules.exposure_timeline import generate_exposure_timeline
 from modules.ct_discovery import get_ct_subdomains
 from modules.asset_discovery import compare_discovered_assets
 from modules.cve_lookup import correlate_cves
 from modules.executive_summary import generate_executive_summary, prioritize_remediation
-
+from modules.scheduler import is_valid_domain, ScanScheduler
 
 st.set_page_config(
     page_title="Attack Surface Discovery Toolkit",
@@ -126,7 +130,8 @@ if submitted:
             domain,
             attack_surface_score["score"],
             attack_surface_score["rating"],
-            findings
+            findings,
+            report_data
         )
 
         history = get_scan_history(domain)
@@ -141,6 +146,24 @@ if submitted:
         )
 
         report_data["exposure_changes"] = exposure_changes
+
+previous_report = None
+
+if previous_scan:
+    previous_report = previous_scan[4] or {}
+
+    if not previous_report:
+        previous_report = {
+            "attack_surface_score": {
+                "score": previous_scan[1],
+                "rating": previous_scan[2]
+            },
+            "findings": previous_scan[3],
+            "subdomains": [],
+            "certificate_transparency_subdomains": []
+        }
+
+        report_data["exposure_timeline"] = exposure_timeline
 
         ssl_info = report_data.get("ssl_information", {})
         if ssl_info and "issuer" in ssl_info:
@@ -514,3 +537,112 @@ if submitted:
             file_name=f"{domain}_report.json",
             mime="application/json"
         )
+# app.py - Son kısımlar (tüm expander'lar ve raporlamalar bittikten sonra)
+
+# ============================================================
+# 📅 SCHEDULED SCANS DASHBOARD
+# ============================================================
+
+st.subheader("📅 Scheduled Scans")
+
+scheduler = ScanScheduler()
+
+# 🆕 Scheduler'ı otomatik başlat
+if not scheduler.running:
+    scheduler.start()
+
+# Scheduler status
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Active Schedules", len(scheduler.get_all_schedules()))
+with col2:
+    st.metric("Total Scans", len(scheduler.get_scan_logs()))
+with col3:
+    status = "🟢 Running" if scheduler.running else "🔴 Stopped"
+    st.metric("Scheduler Status", status)
+
+st.divider()
+
+# Tab view
+tab1, tab2, tab3 = st.tabs(["📋 Schedules", "📊 Scan Logs", "➕ Add Schedule"])
+
+with tab1:
+    schedules = scheduler.get_all_schedules()
+    if schedules:
+        for sched in schedules:
+            with st.container():
+                col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                with col1:
+                    st.write(f"**{sched['domain']}**")
+
+                    # Tarih formatını düzelt
+                    next_run = sched.get('next_run')
+                    if next_run:
+                        try:
+                            pretty_next = datetime.fromisoformat(
+                                next_run).strftime("%d %b %Y %H:%M")
+                            st.caption(f"Next: {pretty_next}")
+                        except:
+                            st.caption(f"Next: {next_run}")
+                    else:
+                        st.caption("Next: N/A")
+
+                with col2:
+                    st.write(f"🔄 {sched['frequency']}")
+                    st.caption(f"at {sched['time']}")
+                with col3:
+                    last_run = sched.get('last_run', 'Never')
+                    if last_run and last_run != 'Never':
+                        try:
+                            pretty_last = datetime.fromisoformat(
+                                last_run).strftime("%d %b %Y %H:%M")
+                            st.write(f"Last: {pretty_last}")
+                        except:
+                            st.write(
+                                f"Last: {last_run[:10] if last_run else 'Never'}")
+                    else:
+                        st.write("Last: Never")
+                with col4:
+                    if st.button("🗑️", key=f"del_{sched['domain']}"):
+                        scheduler.remove_schedule(sched['domain'])
+                        st.success(f"Removed {sched['domain']}")
+                        st.rerun()
+                st.divider()
+    else:
+        st.info("No scheduled scans configured")
+
+with tab2:
+    logs = scheduler.get_scan_logs(limit=20)
+    if logs:
+        df = pd.DataFrame(logs)
+        df_display = df[['domain', 'scan_date', 'score', 'rating', 'status']]
+        st.dataframe(df_display, use_container_width=True)
+    else:
+        st.info("No scan logs available")
+
+with tab3:
+    with st.form("add_schedule_form"):
+        new_domain = st.text_input("Domain", placeholder="example.com")
+
+        if new_domain and not is_valid_domain(new_domain):
+            st.error(
+                "❌ Invalid domain format. Please enter a valid domain (e.g., example.com)")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            frequency = st.selectbox(
+                "Frequency", ["daily", "weekly", "monthly"])
+        with col2:
+            scan_time = st.time_input("Scan Time", value=datetime.now().time())
+        recipient = st.text_input("Recipient Email (optional)")
+
+        if st.form_submit_button("Schedule Scan"):
+            if not new_domain:
+                st.warning("Please enter a domain")
+            elif not is_valid_domain(new_domain):
+                st.error("❌ Invalid domain format")
+            elif scheduler.add_schedule(new_domain, frequency, scan_time.strftime("%H:%M"), recipient):
+                st.success(f"✅ Scheduled scan for {new_domain}")
+                st.rerun()
+            else:
+                st.error(f"❌ Failed to schedule {new_domain}")

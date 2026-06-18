@@ -10,3 +10,4 @@ attack_surface.db
 reports/*.pdf
 !reports/sample-tesla-assessment-report.pdf
 
+attack_surface.db.bak
