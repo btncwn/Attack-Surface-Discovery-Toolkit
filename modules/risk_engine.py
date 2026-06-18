@@ -69,6 +69,18 @@ def generate_findings(report_data: dict) -> list:
     otx_information = report_data.get("otx_information", {})
     asset_analysis = report_data.get("asset_analysis", {})
     cve_results = report_data.get("cve_correlation", {})
+    kev_intelligence = report_data.get("kev_intelligence", [])
+
+    # 0. CISA KEV Intelligence
+    if kev_intelligence:
+        findings.append({
+            "severity": "Critical",
+            "finding": f"{len(kev_intelligence)} CISA Known Exploited Vulnerabilities detected",
+            "recommendation": (
+                "Immediate remediation is recommended. These CVEs are listed in the "
+                "CISA Known Exploited Vulnerabilities catalog and have evidence of active exploitation."
+            )
+        })
 
     # 1. Security Headers
     header_score = 100
