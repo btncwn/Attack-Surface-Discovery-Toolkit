@@ -1,21 +1,47 @@
 """
 Security Headers V2
-
-Modern security header scoring engine.
-Keeps legacy modules/security_headers.py untouched.
 """
 
-
 class SecurityHeadersV2:
-    """Modern security headers scoring engine."""
+
+    WEIGHTS = {
+        "Strict-Transport-Security": 25,
+        "Content-Security-Policy": 25,
+        "X-Frame-Options": 15,
+        "X-Content-Type-Options": 10,
+        "Referrer-Policy": 15,
+        "Permissions-Policy": 10,
+    }
 
     @classmethod
-    def calculate_score(cls, headers: dict) -> dict:
+    def analyze(cls, headers: dict):
+
+        score = 0
+        present = []
+        missing = []
+
+        for header, weight in cls.WEIGHTS.items():
+
+            if header in headers:
+                score += weight
+                present.append(header)
+            else:
+                missing.append(header)
+
+        if score >= 90:
+            grade = "A"
+        elif score >= 75:
+            grade = "B"
+        elif score >= 60:
+            grade = "C"
+        elif score >= 40:
+            grade = "D"
+        else:
+            grade = "F"
+
         return {
-            "score": 0,
-            "grade": "F",
-            "status": "NOT_IMPLEMENTED",
-            "details": {},
-            "missing_headers": [],
-            "present_headers": []
+            "score": score,
+            "grade": grade,
+            "present": present,
+            "missing": missing
         }
