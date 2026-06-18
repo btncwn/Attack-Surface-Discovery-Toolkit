@@ -149,7 +149,7 @@ if submitted:
 
 previous_report = None
 
-if previous_scan:
+if 'previous_scan' in locals() and previous_scan:
     previous_report = previous_scan[4] or {}
 
     if not previous_report:
@@ -513,6 +513,10 @@ if previous_scan:
         st.info("No previous scan history found.")
 
     st.subheader("📄 Reports")
+
+    html_report = f"reports/{domain}_report.html"
+    pdf_report = f"reports/{domain}_report.pdf"
+    json_report = f"reports/{domain}_report.json"
 
     with open(html_report, "rb") as file:
         st.download_button(
