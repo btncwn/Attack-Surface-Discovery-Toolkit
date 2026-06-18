@@ -194,6 +194,9 @@ if submitted:
 
         report_data["exposure_timeline"] = exposure_timeline
 
+        kev_changes = compare_kev(previous_report, report_data)
+        report_data["kev_changes"] = kev_changes
+
         # SSL issuer düzeltmesi
         ssl_info = report_data.get("ssl_information", {})
         if ssl_info and "issuer" in ssl_info:
