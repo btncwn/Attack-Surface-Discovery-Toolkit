@@ -25,6 +25,7 @@ from modules.ct_discovery import get_ct_subdomains
 from modules.asset_discovery import compare_discovered_assets
 from modules.cve_lookup import correlate_cves
 from modules.executive_summary import generate_executive_summary, prioritize_remediation
+from modules.executive_intelligence import generate_executive_intelligence
 from modules.scheduler import is_valid_domain, ScanScheduler
 
 st.set_page_config(
@@ -143,6 +144,9 @@ if submitted:
 
         attack_surface_score = calculate_attack_surface_score(findings)
         report_data["attack_surface_score"] = attack_surface_score
+
+        executive_intelligence = generate_executive_intelligence(report_data)
+        report_data["executive_intelligence"] = executive_intelligence
 
         executive_summary = generate_executive_summary(report_data)
         prioritized_findings = prioritize_remediation(findings)
