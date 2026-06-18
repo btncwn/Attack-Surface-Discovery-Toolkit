@@ -20,6 +20,7 @@ from modules.security_headers import check_security_headers
 from modules.otx_lookup import get_otx_domain_info
 from modules.change_detection import compare_findings
 from modules.exposure_timeline import generate_exposure_timeline
+from modules.hidden_asset_intelligence import HiddenAssetIntelligence
 from modules.ct_discovery import get_ct_subdomains
 from modules.asset_discovery import compare_discovered_assets
 from modules.cve_lookup import correlate_cves
@@ -87,6 +88,12 @@ if submitted:
             ct_subdomains
         )
 
+        hidden_asset_intelligence = HiddenAssetIntelligence.analyze(
+            domain,
+            ct_subdomains,
+            [asset.get("subdomain") for asset in subdomains if isinstance(asset, dict)]
+        )
+
         tech_info = fingerprint_technology(domain)
         security_headers = check_security_headers(domain)
         cve_results = correlate_cves(tech_info, dns_records)
@@ -109,6 +116,7 @@ if submitted:
             "subdomains": subdomains,
             "certificate_transparency_subdomains": ct_subdomains,
             "asset_analysis": asset_analysis,
+            "hidden_asset_intelligence": hidden_asset_intelligence,
             "technology_fingerprint": tech_info,
             "security_headers": security_headers,
             "shodan_information": shodan_info,
